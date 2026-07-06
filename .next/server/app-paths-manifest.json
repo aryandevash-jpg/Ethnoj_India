@@ -1,7 +1,0 @@
-{
-  "/admin/categories/page": "app/admin/categories/page.js",
-  "/admin/orders/page": "app/admin/orders/page.js",
-  "/admin/reviews/page": "app/admin/reviews/page.js",
-  "/admin/home-config/page": "app/admin/home-config/page.js",
-  "/admin/enquiries/page": "app/admin/enquiries/page.js"
-}
