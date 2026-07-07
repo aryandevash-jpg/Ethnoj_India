@@ -114,6 +114,13 @@ export const useAdminConfig = create<AdminConfigStore>((set, get) => ({
   fetchConfig: async () => {
     const supabase = createClient();
 
+    // Helper to filter out empty/null/undefined values from config
+    const filterEmptyValues = <T extends Record<string, unknown>>(obj: T): Partial<T> => {
+      return Object.fromEntries(
+        Object.entries(obj).filter(([, value]) => value !== null && value !== undefined && value !== "")
+      ) as Partial<T>;
+    };
+
     try {
       // Fetch all home_config from database
       const { data: configs } = await supabase
@@ -127,16 +134,16 @@ export const useAdminConfig = create<AdminConfigStore>((set, get) => ({
         configs.forEach((item) => {
           switch (item.section) {
             case "hero":
-              if (item.config) newConfig.hero = { ...defaultConfig.hero, ...item.config };
+              if (item.config) newConfig.hero = { ...defaultConfig.hero, ...filterEmptyValues(item.config) };
               break;
             case "carousel":
-              if (item.config) newConfig.carousel = { ...defaultConfig.carousel, ...item.config };
+              if (item.config) newConfig.carousel = { ...defaultConfig.carousel, ...filterEmptyValues(item.config) };
               break;
             case "featured":
-              if (item.config) newConfig.featuredProduct = { ...defaultConfig.featuredProduct, ...item.config };
+              if (item.config) newConfig.featuredProduct = { ...defaultConfig.featuredProduct, ...filterEmptyValues(item.config) };
               break;
             case "footer":
-              if (item.config) newConfig.footer = { ...defaultConfig.footer, ...item.config };
+              if (item.config) newConfig.footer = { ...defaultConfig.footer, ...filterEmptyValues(item.config) };
               break;
           }
         });
