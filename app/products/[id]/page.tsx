@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Heart, ShieldCheck, Truck, RotateCcw, Star, Play } from "lucide-react";
+import { Heart, ShieldCheck, Truck, RotateCcw, Star } from "lucide-react";
 import { formatINR, useCart } from "@/lib/cart";
 import { toast } from "sonner";
 import { notFound } from "next/navigation";
@@ -51,8 +51,13 @@ export default function ProductDetail({
       } else {
         setProduct(data);
         setSize(data.sizes?.[0] || "");
-        setActiveMedia(data.image);
-        setActiveMediaType("image");
+        if (data.video_url) {
+          setActiveMedia(data.video_url);
+          setActiveMediaType("video");
+        } else {
+          setActiveMedia(data.image);
+          setActiveMediaType("image");
+        }
 
         const { data: category } = await supabase
           .from("categories")
@@ -114,7 +119,6 @@ export default function ProductDetail({
               playsInline
               loop
               autoPlay
-              controls
             />
           ) : (
             <motion.img
@@ -142,9 +146,14 @@ export default function ProductDetail({
                 }`}
               >
                 {item.type === "video" ? (
-                  <div className="flex h-20 w-16 items-center justify-center bg-maroon text-cream">
-                    <Play className="h-5 w-5" />
-                  </div>
+                  <video
+                    src={item.src}
+                    muted
+                    playsInline
+                    loop
+                    autoPlay
+                    className="h-20 w-16 object-cover"
+                  />
                 ) : (
                   <img src={item.src} alt="" className="h-20 w-16 object-cover" />
                 )}
