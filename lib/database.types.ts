@@ -9,7 +9,7 @@ export interface DBProduct {
   id: string;
   name: string;
   slug: string;
-  category: Category;
+  category: string;
   price: number;
   mrp?: number;
   image: string;

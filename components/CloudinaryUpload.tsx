@@ -228,7 +228,7 @@ export function CloudinaryUpload({
             className="relative group"
           >
             <div className={`relative ${aspectClass} w-full overflow-hidden rounded-xl border-2 border-gold/30 bg-cream shadow-warm`}>
-              {isVideo || type === "video" ? (
+              {isVideo ? (
                 <>
                   <video
                     src={value}

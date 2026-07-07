@@ -1,7 +1,7 @@
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createBuildClient } from "@/lib/supabase/build-client";
 import { unstable_cache } from "next/cache";
-import type { DBProduct, DBCategory, DBReview, DBOrder, DBHomeConfig, DBEnquiry, Category } from "./database.types";
+import type { DBProduct, DBCategory, DBReview, DBOrder, DBHomeConfig, DBEnquiry } from "./database.types";
 
 async function getSupabaseClient() {
   if (process.env.NEXT_PHASE === "phase-production-build") {
@@ -72,7 +72,7 @@ export async function getProductBySlug(slug: string) {
   return cachedFn();
 }
 
-export async function getProductsByCategory(category: Category): Promise<DBProduct[]> {
+export async function getProductsByCategory(category: string): Promise<DBProduct[]> {
   try {
     const supabase = await getSupabaseClient();
     if (!supabase) return [];

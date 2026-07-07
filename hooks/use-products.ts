@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { DBProduct, Category } from "@/lib/database.types";
+import type { DBProduct } from "@/lib/database.types";
 import { isUuid } from "@/lib/utils";
 
 export function useProducts(options?: {
-  category?: Category;
+  category?: string;
   featured?: boolean;
   limit?: number;
 }) {

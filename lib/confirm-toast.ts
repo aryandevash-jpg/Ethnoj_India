@@ -14,6 +14,7 @@ export function confirmToast(
     },
     cancel: {
       label: "Cancel",
+      onClick: () => {},
     },
   });
 }
