@@ -49,29 +49,29 @@ export default function ProductEditPage() {
 
   useEffect(() => {
     if (!isNew) {
+      async function fetchProduct() {
+        const supabase = createClient();
+
+        const { data, error } = await supabase
+          .from("products")
+          .select("*")
+          .eq("id", params.id)
+          .single();
+
+        if (error) {
+          toast.error("Product not found");
+          router.push("/admin/products");
+        } else {
+          setProduct(data);
+          setColorsInput(data.colors?.join(", ") || "");
+          setSizesInput(data.sizes?.join(", ") || "");
+        }
+        setLoading(false);
+      }
+
       fetchProduct();
     }
-  }, [params.id, isNew]);
-
-  async function fetchProduct() {
-    const supabase = createClient();
-
-    const { data, error } = await supabase
-      .from("products")
-      .select("*")
-      .eq("id", params.id)
-      .single();
-
-    if (error) {
-      toast.error("Product not found");
-      router.push("/admin/products");
-    } else {
-      setProduct(data);
-      setColorsInput(data.colors?.join(", ") || "");
-      setSizesInput(data.sizes?.join(", ") || "");
-    }
-    setLoading(false);
-  }
+  }, [params.id, isNew, router]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

@@ -26,28 +26,28 @@ export default function ProductDetail({
   const [activeImg, setActiveImg] = useState<string>("");
 
   useEffect(() => {
+    async function fetchProduct() {
+      const supabase = createClient();
+
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .or(`slug.eq.${id},id.eq.${id}`)
+        .eq("is_active", true)
+        .single();
+
+      if (error || !data) {
+        setNotFoundState(true);
+      } else {
+        setProduct(data);
+        setSize(data.sizes?.[0] || "");
+        setActiveImg(data.image);
+      }
+      setLoading(false);
+    }
+
     fetchProduct();
   }, [id]);
-
-  async function fetchProduct() {
-    const supabase = createClient();
-
-    const { data, error } = await supabase
-      .from("products")
-      .select("*")
-      .or(`slug.eq.${id},id.eq.${id}`)
-      .eq("is_active", true)
-      .single();
-
-    if (error || !data) {
-      setNotFoundState(true);
-    } else {
-      setProduct(data);
-      setSize(data.sizes?.[0] || "");
-      setActiveImg(data.image);
-    }
-    setLoading(false);
-  }
 
   if (loading) {
     return (

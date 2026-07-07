@@ -1,7 +1,7 @@
 "use client";
 
 import { Upload, X, Image as ImageIcon, Video, Link2, Sparkles, Film, Loader2, AlertCircle } from "lucide-react";
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface CloudinaryUploadProps {
@@ -11,30 +11,53 @@ interface CloudinaryUploadProps {
   label?: string;
   placeholder?: string;
   aspectRatio?: "video" | "square" | "portrait";
+  folder?: string;
 }
 
-const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-const UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "ml_default";
-
-function isCloudinaryConfigured(): boolean {
-  return Boolean(CLOUD_NAME && CLOUD_NAME !== "your_cloud_name");
+interface SignatureResponse {
+  signature: string;
+  timestamp: number;
+  cloudName: string;
+  apiKey: string;
+  folder: string;
+  resourceType: string;
 }
 
-async function uploadToCloudinary(file: File, resourceType: string): Promise<string> {
-  if (!isCloudinaryConfigured()) {
-    throw new Error("Cloudinary not configured");
+async function getSignature(resourceType: string, folder: string): Promise<SignatureResponse> {
+  const response = await fetch("/api/cloudinary/sign", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ resourceType, folder }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error || "Failed to get upload signature");
   }
+
+  return response.json();
+}
+
+async function uploadToCloudinary(
+  file: File,
+  resourceType: string,
+  folder: string
+): Promise<string> {
+  const { signature, timestamp, cloudName, apiKey } = await getSignature(resourceType, folder);
 
   const formData = new FormData();
   formData.append("file", file);
-  formData.append("upload_preset", UPLOAD_PRESET);
+  formData.append("signature", signature);
+  formData.append("timestamp", timestamp.toString());
+  formData.append("api_key", apiKey);
+  formData.append("folder", folder);
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
+  const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 min timeout for large files
 
   try {
     const response = await fetch(
-      `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${resourceType}/upload`,
+      `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`,
       {
         method: "POST",
         body: formData,
@@ -60,6 +83,16 @@ async function uploadToCloudinary(file: File, resourceType: string): Promise<str
   }
 }
 
+async function checkCloudinaryConfigured(): Promise<boolean> {
+  try {
+    const response = await fetch("/api/cloudinary/sign");
+    const data = await response.json();
+    return data.configured === true;
+  } catch {
+    return false;
+  }
+}
+
 export function CloudinaryUpload({
   value,
   onChange,
@@ -67,14 +100,18 @@ export function CloudinaryUpload({
   label,
   placeholder = "Paste URL here...",
   aspectRatio = "video",
+  folder = "uploads",
 }: CloudinaryUploadProps) {
-  const [isManualInput, setIsManualInput] = useState(!isCloudinaryConfigured());
+  const [isManualInput, setIsManualInput] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cloudinaryEnabled, setCloudinaryEnabled] = useState<boolean | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const cloudinaryEnabled = isCloudinaryConfigured();
+  useEffect(() => {
+    checkCloudinaryConfigured().then(setCloudinaryEnabled);
+  }, []);
 
   const resourceType = type === "video" ? "video" : "image";
   const acceptTypes = type === "video" 
@@ -101,7 +138,7 @@ export function CloudinaryUpload({
     setIsUploading(true);
     
     try {
-      const url = await uploadToCloudinary(file, resourceType);
+      const url = await uploadToCloudinary(file, resourceType, folder);
       onChange(url);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Upload failed";
@@ -113,7 +150,7 @@ export function CloudinaryUpload({
         fileInputRef.current.value = "";
       }
     }
-  }, [onChange, resourceType]);
+  }, [onChange, resourceType, folder]);
 
   const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
@@ -131,7 +168,7 @@ export function CloudinaryUpload({
     setIsUploading(true);
     
     try {
-      const url = await uploadToCloudinary(file, resourceType);
+      const url = await uploadToCloudinary(file, resourceType, folder);
       onChange(url);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Upload failed";
@@ -140,7 +177,7 @@ export function CloudinaryUpload({
     } finally {
       setIsUploading(false);
     }
-  }, [cloudinaryEnabled, onChange, resourceType]);
+  }, [cloudinaryEnabled, onChange, resourceType, folder]);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -151,6 +188,13 @@ export function CloudinaryUpload({
     e.preventDefault();
     setIsDragging(false);
   };
+
+  // Show URL input by default if Cloudinary not configured
+  useEffect(() => {
+    if (cloudinaryEnabled === false) {
+      setIsManualInput(true);
+    }
+  }, [cloudinaryEnabled]);
 
   return (
     <div className="space-y-2">
@@ -241,7 +285,11 @@ export function CloudinaryUpload({
               </div>
             )}
 
-            {!isManualInput && cloudinaryEnabled ? (
+            {cloudinaryEnabled === null ? (
+              <div className={`flex items-center justify-center rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 ${aspectClass}`}>
+                <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+              </div>
+            ) : !isManualInput && cloudinaryEnabled ? (
               <motion.button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
@@ -298,7 +346,7 @@ export function CloudinaryUpload({
 
                       <div className="flex items-center gap-4 text-xs text-maroon/50">
                         <span className="flex items-center gap-1">
-                          <Upload className="h-3 w-3" /> Browse files
+                          <Upload className="h-3 w-3" /> Secure upload
                         </span>
                       </div>
                     </>
@@ -363,18 +411,24 @@ export function CloudinaryMultiUpload({
   type = "image",
   label,
   maxFiles = 5,
+  folder = "uploads",
 }: {
   values: string[];
   onChange: (urls: string[]) => void;
   type?: "image" | "video" | "any";
   label?: string;
   maxFiles?: number;
+  folder?: string;
 }) {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cloudinaryEnabled, setCloudinaryEnabled] = useState<boolean | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const cloudinaryEnabled = isCloudinaryConfigured();
+  useEffect(() => {
+    checkCloudinaryConfigured().then(setCloudinaryEnabled);
+  }, []);
+
   const resourceType = type === "video" ? "video" : "image";
   const acceptTypes = type === "video" 
     ? "video/mp4,video/webm,video/quicktime" 
@@ -400,7 +454,7 @@ export function CloudinaryMultiUpload({
     
     try {
       const uploadPromises = files.slice(0, maxFiles - values.length).map(file => 
-        uploadToCloudinary(file, resourceType)
+        uploadToCloudinary(file, resourceType, folder)
       );
       const urls = await Promise.all(uploadPromises);
       onChange([...values, ...urls]);
