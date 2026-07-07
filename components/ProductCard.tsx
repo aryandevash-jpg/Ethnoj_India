@@ -64,11 +64,28 @@ export function ProductCard({
             onLoad={() => setImageLoaded(true)}
             className="absolute inset-0 h-full w-full object-cover"
             animate={{
-              scale: hovered ? 1.08 : 1,
-              filter: hovered ? "brightness(0.9)" : "brightness(1)",
+              scale: hovered && !product.videoUrl ? 1.08 : 1,
+              filter: hovered && !product.videoUrl ? "brightness(0.9)" : "brightness(1)",
+              opacity: product.videoUrl ? 0 : 1,
             }}
             transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
           />
+
+          {product.videoUrl && (
+            <motion.video
+              src={product.videoUrl}
+              muted
+              playsInline
+              loop
+              autoPlay
+              className="absolute inset-0 h-full w-full object-cover"
+              animate={{
+                opacity: 1,
+                scale: hovered ? 1.08 : 1,
+              }}
+              transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+            />
+          )}
 
           <motion.img
             src={product.hoverImage}
@@ -78,10 +95,12 @@ export function ProductCard({
             className="absolute inset-0 h-full w-full object-cover"
             initial={false}
             animate={{
-              clipPath: hovered
-                ? "polygon(0 0, 100% 0, 100% 100%, 0 100%)"
-                : "polygon(0 0, 0 0, 0 100%, 0 100%)",
-              scale: hovered ? 1.08 : 1,
+              clipPath:
+                hovered && !product.videoUrl
+                  ? "polygon(0 0, 100% 0, 100% 100%, 0 100%)"
+                  : "polygon(0 0, 0 0, 0 100%, 0 100%)",
+              scale: hovered && !product.videoUrl ? 1.08 : 1,
+              opacity: product.videoUrl ? 0 : 1,
             }}
             transition={{ duration: 0.8, ease: [0.65, 0, 0.35, 1] }}
           />

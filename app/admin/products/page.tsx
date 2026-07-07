@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Pencil, Trash2, Search, Filter } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Filter, Video } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { DBProduct, DBCategory } from "@/lib/database.types";
 import { toast } from "sonner";
@@ -41,6 +41,7 @@ export default function ProductsPage() {
         supabase
           .from("categories")
           .select("*")
+          .eq("is_active", true)
           .order("display_order", { ascending: true }),
       ]);
 
@@ -169,7 +170,7 @@ export default function ProductsPage() {
             onChange={(e) => setCategoryFilter(e.target.value)}
             className="pl-10 pr-8 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-maroon/20 focus:border-maroon appearance-none bg-white"
           >
-            <option value="">All Categories</option>
+            <option value="">All Categories ({categories.length})</option>
             {categories.map((category) => (
               <option key={category.id} value={category.slug}>
                 {category.name}
@@ -187,6 +188,9 @@ export default function ProductsPage() {
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Product
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Media
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Category
@@ -210,16 +214,33 @@ export default function ProductsPage() {
                 <tr key={product.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <img
-                        src={product.image}
-                        alt={product.name}
-                        className="h-12 w-12 rounded-lg object-cover"
-                      />
+                      <div className="relative">
+                        <img
+                          src={product.image}
+                          alt={product.name}
+                          className="h-12 w-12 rounded-lg object-cover"
+                        />
+                        {product.video_url && (
+                          <span className="absolute -bottom-1 -right-1 rounded-full bg-maroon p-1 text-white">
+                            <Video className="h-3 w-3" />
+                          </span>
+                        )}
+                      </div>
                       <div>
                         <p className="font-medium text-gray-900">{product.name}</p>
                         <p className="text-sm text-gray-500">{product.slug}</p>
                       </div>
                     </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    {product.video_url ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                        <Video className="h-3 w-3" />
+                        Video
+                      </span>
+                    ) : (
+                      <span className="text-xs text-gray-400">Image only</span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">

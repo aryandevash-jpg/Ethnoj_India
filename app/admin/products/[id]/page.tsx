@@ -35,81 +35,104 @@ export default function ProductEditPage() {
 
   const [product, setProduct] = useState<Partial<DBProduct>>(defaultProduct);
   const [categories, setCategories] = useState<DBCategory[]>([]);
-  const [loading, setLoading] = useState(!isNew);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [colorsInput, setColorsInput] = useState("");
   const [sizesInput, setSizesInput] = useState("");
 
   useEffect(() => {
-    async function fetchCategories() {
+    async function loadData() {
       const supabase = createClient();
-      const { data, error } = await supabase
+
+      const categoriesPromise = supabase
         .from("categories")
         .select("*")
         .order("display_order", { ascending: true });
 
-      if (error) {
+      const productPromise = isNew
+        ? Promise.resolve({ data: null, error: null })
+        : supabase.from("products").select("*").eq("id", params.id).single();
+
+      const [categoriesResult, productResult] = await Promise.all([
+        categoriesPromise,
+        productPromise,
+      ]);
+
+      if (categoriesResult.error) {
         toast.error("Failed to fetch categories");
+        setLoading(false);
         return;
       }
 
-      setCategories(data || []);
+      const fetchedCategories = categoriesResult.data || [];
+      setCategories(fetchedCategories);
 
-      if (isNew && data?.length) {
-        const firstActive = data.find((category) => category.is_active);
-        if (firstActive) {
-          setProduct((current) =>
-            current.category ? current : { ...current, category: firstActive.slug }
-          );
-        }
-      }
-    }
+      const activeCategories = fetchedCategories.filter(
+        (category) => category.is_active
+      );
 
-    fetchCategories();
-  }, [isNew]);
-
-  useEffect(() => {
-    if (!isNew) {
-      async function fetchProduct() {
-        const supabase = createClient();
-
-        const { data, error } = await supabase
-          .from("products")
-          .select("*")
-          .eq("id", params.id)
-          .single();
-
-        if (error) {
+      if (!isNew) {
+        if (productResult.error || !productResult.data) {
           toast.error("Product not found");
           router.push("/admin/products");
-        } else {
-          setProduct(data);
-          setColorsInput(data.colors?.join(", ") || "");
-          setSizesInput(data.sizes?.join(", ") || "");
+          return;
         }
-        setLoading(false);
+
+        setProduct(productResult.data);
+        setColorsInput(productResult.data.colors?.join(", ") || "");
+        setSizesInput(productResult.data.sizes?.join(", ") || "");
+      } else if (activeCategories.length > 0) {
+        setProduct((current) => ({
+          ...current,
+          category: activeCategories[0].slug,
+        }));
       }
 
-      fetchProduct();
+      setLoading(false);
     }
-  }, [params.id, isNew, router]);
 
-  const selectableCategories = categories.filter(
-    (category) =>
-      category.is_active || category.slug === product.category
-  );
+    loadData();
+  }, [isNew, params.id, router]);
+
+  const activeCategories = categories.filter((category) => category.is_active);
+  const selectableCategories = [
+    ...activeCategories,
+    ...categories.filter(
+      (category) =>
+        !category.is_active && category.slug === product.category
+    ),
+  ];
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    if (!product.category) {
+      toast.error("Please select a category");
+      return;
+    }
+
     setSaving(true);
 
     const supabase = createClient();
 
     const productData = {
-      ...product,
+      name: product.name,
+      slug: product.slug || product.name?.toLowerCase().replace(/\s+/g, "-"),
+      category: product.category,
+      price: product.price,
+      mrp: product.mrp || null,
+      image: product.image,
+      hover_image: product.hover_image || null,
+      video_url: product.video_url || null,
       colors: colorsInput.split(",").map((c) => c.trim()).filter(Boolean),
       sizes: sizesInput.split(",").map((s) => s.trim()).filter(Boolean),
-      slug: product.slug || product.name?.toLowerCase().replace(/\s+/g, "-"),
+      description: product.description,
+      short_description: product.short_description || null,
+      is_featured: product.is_featured ?? false,
+      is_active: product.is_active ?? true,
+      stock: product.stock ?? 0,
+      rating: product.rating ?? 5,
+      reviews_count: product.reviews_count ?? 0,
     };
 
     try {
@@ -216,11 +239,13 @@ export default function ProductEditPage() {
                   ))
                 )}
               </select>
-              {selectableCategories.length === 0 && (
-                <p className="mt-1 text-sm text-gray-500">
-                  Add an active category before creating products.
-                </p>
-              )}
+              <p className="mt-1 text-sm text-gray-500">
+                {activeCategories.length > 0
+                  ? `${activeCategories.length} active ${
+                      activeCategories.length === 1 ? "category" : "categories"
+                    } available`
+                  : "Add an active category before creating products."}
+              </p>
             </div>
 
             <div>
@@ -326,6 +351,11 @@ export default function ProductEditPage() {
                 onChange={(url) => setProduct({ ...product, video_url: url })}
                 type="video"
               />
+              {product.video_url && (
+                <p className="mt-2 text-sm text-green-700">
+                  Video attached and will be shown on the product page.
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -382,7 +412,7 @@ export default function ProductEditPage() {
         <div className="flex items-center gap-4">
           <button
             type="submit"
-            disabled={saving || selectableCategories.length === 0}
+            disabled={saving || activeCategories.length === 0}
             className="inline-flex items-center gap-2 px-6 py-2 bg-maroon text-white rounded-lg hover:bg-maroon/90 transition-colors disabled:opacity-50"
           >
             {saving ? (

@@ -189,6 +189,7 @@ function ProductsContent() {
                     mrp: p.mrp || p.price,
                     image: p.image,
                     hoverImage: p.hover_image || p.image,
+                    videoUrl: p.video_url || undefined,
                     category: p.category as any,
                     colors: p.colors || [],
                     sizes: p.sizes || [],

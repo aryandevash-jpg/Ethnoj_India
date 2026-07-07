@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Heart, ShieldCheck, Truck, RotateCcw, Star } from "lucide-react";
+import { Heart, ShieldCheck, Truck, RotateCcw, Star, Play } from "lucide-react";
 import { formatINR, useCart } from "@/lib/cart";
 import { toast } from "sonner";
 import { notFound } from "next/navigation";
@@ -17,13 +17,15 @@ export default function ProductDetail({
 }) {
   const { id } = use(params);
   const [product, setProduct] = useState<DBProduct | null>(null);
+  const [categoryName, setCategoryName] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [notFoundState, setNotFoundState] = useState(false);
 
   const add = useCart((s) => s.add);
   const setOpen = useCart((s) => s.setOpen);
   const [size, setSize] = useState<string>("");
-  const [activeImg, setActiveImg] = useState<string>("");
+  const [activeMedia, setActiveMedia] = useState<string>("");
+  const [activeMediaType, setActiveMediaType] = useState<"image" | "video">("image");
 
   useEffect(() => {
     async function fetchProduct() {
@@ -41,7 +43,16 @@ export default function ProductDetail({
       } else {
         setProduct(data);
         setSize(data.sizes?.[0] || "");
-        setActiveImg(data.image);
+        setActiveMedia(data.image);
+        setActiveMediaType("image");
+
+        const { data: category } = await supabase
+          .from("categories")
+          .select("name")
+          .eq("slug", data.category)
+          .maybeSingle();
+
+        setCategoryName(category?.name || data.category.replace(/-/g, " "));
       }
       setLoading(false);
     }
@@ -70,32 +81,63 @@ export default function ProductDetail({
   }
 
   const images = [product.image, product.hover_image].filter(Boolean);
+  const mediaItems = [
+    ...images.map((src) => ({ type: "image" as const, src: src! })),
+    ...(product.video_url
+      ? [{ type: "video" as const, src: product.video_url }]
+      : []),
+  ];
 
   return (
     <div className="mx-auto max-w-7xl px-5 py-12">
       <div className="grid gap-10 md:grid-cols-2">
         <div>
-          <motion.img
-            key={activeImg}
-            initial={{ opacity: 0, scale: 1.02 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.4 }}
-            src={activeImg}
-            alt={product.name}
-            className="aspect-[3/4] w-full rounded-2xl object-cover gold-border"
-          />
+          {activeMediaType === "video" ? (
+            <motion.video
+              key={activeMedia}
+              initial={{ opacity: 0, scale: 1.02 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.4 }}
+              src={activeMedia}
+              className="aspect-[3/4] w-full rounded-2xl object-cover gold-border"
+              muted
+              playsInline
+              loop
+              autoPlay
+              controls
+            />
+          ) : (
+            <motion.img
+              key={activeMedia}
+              initial={{ opacity: 0, scale: 1.02 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.4 }}
+              src={activeMedia}
+              alt={product.name}
+              className="aspect-[3/4] w-full rounded-2xl object-cover gold-border"
+            />
+          )}
           <div className="mt-4 flex gap-3">
-            {images.map((src) => (
+            {mediaItems.map((item) => (
               <button
-                key={src}
-                onClick={() => setActiveImg(src!)}
-                className={`overflow-hidden rounded-lg ${
-                  activeImg === src
+                key={item.src}
+                onClick={() => {
+                  setActiveMedia(item.src);
+                  setActiveMediaType(item.type);
+                }}
+                className={`relative overflow-hidden rounded-lg ${
+                  activeMedia === item.src
                     ? "ring-2 ring-maroon"
                     : "opacity-70 hover:opacity-100"
                 }`}
               >
-                <img src={src!} alt="" className="h-20 w-16 object-cover" />
+                {item.type === "video" ? (
+                  <div className="flex h-20 w-16 items-center justify-center bg-maroon text-cream">
+                    <Play className="h-5 w-5" />
+                  </div>
+                ) : (
+                  <img src={item.src} alt="" className="h-20 w-16 object-cover" />
+                )}
               </button>
             ))}
           </div>
@@ -107,7 +149,7 @@ export default function ProductDetail({
           transition={{ duration: 0.6 }}
         >
           <p className="text-xs uppercase tracking-[0.3em] text-gold">
-            {product.category?.replace("-", " ")}
+            {categoryName}
           </p>
           <h1 className="mt-2 font-display text-4xl text-ink md:text-5xl">
             {product.name}

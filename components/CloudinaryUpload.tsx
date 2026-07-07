@@ -120,7 +120,12 @@ export function CloudinaryUpload({
     ? "image/*,video/*" 
     : "image/jpeg,image/png,image/webp,image/gif";
 
-  const isVideo = value?.includes(".mp4") || value?.includes(".webm") || value?.includes(".mov");
+  const isVideo =
+    type === "video" ||
+    value?.includes("/video/upload/") ||
+    value?.includes(".mp4") ||
+    value?.includes(".webm") ||
+    value?.includes(".mov");
 
   const aspectClass = aspectRatio === "square" 
     ? "aspect-square" 
