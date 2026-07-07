@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { Plus, Pencil, Trash2, GripVertical, Save, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { DBCategory } from "@/lib/database.types";
@@ -216,17 +216,32 @@ export default function CategoriesPage() {
               type="video"
             />
           </div>
-          <label className="mb-4 flex items-center gap-2 text-sm text-gray-700">
-            <input
-              type="checkbox"
-              checked={newCategory.is_active ?? true}
-              onChange={(e) =>
-                setNewCategory({ ...newCategory, is_active: e.target.checked })
+          <div className="mb-4 flex items-center gap-3">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={newCategory.is_active ?? true}
+              aria-label="Toggle category active status"
+              onClick={() =>
+                setNewCategory({
+                  ...newCategory,
+                  is_active: !(newCategory.is_active ?? true),
+                })
               }
-              className="h-4 w-4 rounded border-gray-300 text-maroon focus:ring-maroon/20"
-            />
-            Active (visible on the storefront)
-          </label>
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-maroon/30 ${
+                newCategory.is_active ?? true ? "bg-green-500" : "bg-gray-300"
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
+                  newCategory.is_active ?? true ? "translate-x-5" : "translate-x-0"
+                }`}
+              />
+            </button>
+            <span className="text-sm font-medium text-gray-700">
+              Active (visible on the storefront)
+            </span>
+          </div>
           <div className="flex gap-2">
             <button
               onClick={() => saveCategory(newCategory, true)}
@@ -270,21 +285,12 @@ export default function CategoriesPage() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {categories.map((category) => (
-                <tr key={category.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">
-                    <GripVertical className="h-4 w-4 text-gray-400 cursor-grab" />
-                  </td>
-                  <td className="px-4 py-3">
-                    {editingId === category.id ? (
-                      <input
-                        type="text"
-                        value={editForm.name || ""}
-                        onChange={(e) =>
-                          setEditForm({ ...editForm, name: e.target.value })
-                        }
-                        className="px-2 py-1 border border-gray-200 rounded text-sm"
-                      />
-                    ) : (
+                <Fragment key={category.id}>
+                  <tr className="hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <GripVertical className="h-4 w-4 text-gray-400 cursor-grab" />
+                    </td>
+                    <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         {category.image && (
                           <img
@@ -300,82 +306,195 @@ export default function CategoriesPage() {
                           )}
                         </div>
                       </div>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-500">{category.slug}</td>
-                  <td className="px-4 py-3">
-                    {editingId === category.id ? (
-                      <label className="flex items-center gap-2 text-sm text-gray-700">
-                        <input
-                          type="checkbox"
-                          checked={editForm.is_active ?? true}
-                          onChange={(e) =>
-                            setEditForm({ ...editForm, is_active: e.target.checked })
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{category.slug}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={category.is_active}
+                          aria-label={
+                            category.is_active
+                              ? "Deactivate category"
+                              : "Activate category"
                           }
-                          className="h-4 w-4 rounded border-gray-300 text-maroon focus:ring-maroon/20"
-                        />
-                        Active
-                      </label>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          toggleCategoryActive(category.id, category.is_active)
-                        }
-                        className={`inline-flex px-2 py-1 text-xs font-medium rounded-full transition-colors ${
-                          category.is_active
-                            ? "bg-green-100 text-green-800 hover:bg-green-200"
-                            : "bg-gray-100 text-gray-800 hover:bg-gray-200"
-                        }`}
-                        title={
-                          category.is_active
-                            ? "Click to deactivate"
-                            : "Click to activate"
-                        }
-                      >
-                        {category.is_active ? "Active" : "Inactive"}
-                      </button>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-end gap-2">
-                      {editingId === category.id ? (
-                        <>
-                          <button
-                            onClick={() => saveCategory(editForm)}
-                            className="p-2 text-green-600 hover:bg-green-50 rounded-lg"
-                          >
-                            <Save className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => setEditingId(null)}
-                            className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button
-                            onClick={() => {
-                              setEditingId(category.id);
-                              setEditForm(category);
-                            }}
-                            className="p-2 text-gray-500 hover:text-maroon hover:bg-gray-100 rounded-lg"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => deleteCategory(category.id)}
-                            className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </td>
-                </tr>
+                          onClick={() =>
+                            toggleCategoryActive(category.id, category.is_active)
+                          }
+                          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-maroon/30 ${
+                            category.is_active ? "bg-green-500" : "bg-gray-300"
+                          }`}
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
+                              category.is_active ? "translate-x-5" : "translate-x-0"
+                            }`}
+                          />
+                        </button>
+                        <span
+                          className={`text-sm font-medium ${
+                            category.is_active ? "text-green-700" : "text-gray-500"
+                          }`}
+                        >
+                          {category.is_active ? "Active" : "Inactive"}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => {
+                            setEditingId(category.id);
+                            setEditForm(category);
+                          }}
+                          className="p-2 text-gray-500 hover:text-maroon hover:bg-gray-100 rounded-lg"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => deleteCategory(category.id)}
+                          className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+
+                  {editingId === category.id && (
+                    <tr className="bg-gray-50">
+                      <td colSpan={5} className="px-4 py-6">
+                        <div className="space-y-4">
+                          <h4 className="font-semibold text-gray-900">
+                            Edit Category
+                          </h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Category Name
+                              </label>
+                              <input
+                                type="text"
+                                value={editForm.name || ""}
+                                onChange={(e) =>
+                                  setEditForm({ ...editForm, name: e.target.value })
+                                }
+                                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-maroon/20 focus:border-maroon"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Slug
+                              </label>
+                              <input
+                                type="text"
+                                value={editForm.slug || ""}
+                                onChange={(e) =>
+                                  setEditForm({ ...editForm, slug: e.target.value })
+                                }
+                                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-maroon/20 focus:border-maroon"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Tagline
+                              </label>
+                              <input
+                                type="text"
+                                value={editForm.tagline || ""}
+                                onChange={(e) =>
+                                  setEditForm({ ...editForm, tagline: e.target.value })
+                                }
+                                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-maroon/20 focus:border-maroon"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Description
+                              </label>
+                              <textarea
+                                value={editForm.description || ""}
+                                onChange={(e) =>
+                                  setEditForm({
+                                    ...editForm,
+                                    description: e.target.value,
+                                  })
+                                }
+                                rows={2}
+                                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-maroon/20 focus:border-maroon"
+                              />
+                            </div>
+                            <CloudinaryUpload
+                              label="Category Image"
+                              value={editForm.image || ""}
+                              onChange={(url) =>
+                                setEditForm({ ...editForm, image: url })
+                              }
+                              type="image"
+                            />
+                            <CloudinaryUpload
+                              label="Category Video (optional)"
+                              value={editForm.video_url || ""}
+                              onChange={(url) =>
+                                setEditForm({ ...editForm, video_url: url })
+                              }
+                              type="video"
+                            />
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              role="switch"
+                              aria-checked={editForm.is_active ?? true}
+                              aria-label="Toggle category active status"
+                              onClick={() =>
+                                setEditForm({
+                                  ...editForm,
+                                  is_active: !(editForm.is_active ?? true),
+                                })
+                              }
+                              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-maroon/30 ${
+                                editForm.is_active ?? true
+                                  ? "bg-green-500"
+                                  : "bg-gray-300"
+                              }`}
+                            >
+                              <span
+                                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
+                                  editForm.is_active ?? true
+                                    ? "translate-x-5"
+                                    : "translate-x-0"
+                                }`}
+                              />
+                            </button>
+                            <span className="text-sm font-medium text-gray-700">
+                              Active (visible on the storefront)
+                            </span>
+                          </div>
+
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => saveCategory(editForm)}
+                              className="inline-flex items-center gap-2 px-4 py-2 bg-maroon text-white rounded-lg hover:bg-maroon/90"
+                            >
+                              <Save className="h-4 w-4" />
+                              Save Changes
+                            </button>
+                            <button
+                              onClick={() => setEditingId(null)}
+                              className="inline-flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900"
+                            >
+                              <X className="h-4 w-4" />
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               ))}
             </tbody>
           </table>
