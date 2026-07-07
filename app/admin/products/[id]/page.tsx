@@ -4,22 +4,14 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { ArrowLeft, Save, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import type { DBProduct, Category } from "@/lib/database.types";
+import type { DBProduct, DBCategory } from "@/lib/database.types";
 import { toast } from "sonner";
 import { CloudinaryUpload } from "@/components/CloudinaryUpload";
-
-const categories: { value: Category; label: string }[] = [
-  { value: "co-ord-sets", label: "Co-ord Sets" },
-  { value: "kurtis", label: "Kurtis" },
-  { value: "ladies-suits", label: "Ladies Suits" },
-  { value: "sarees", label: "Sarees" },
-  { value: "lehengas", label: "Lehengas" },
-];
 
 const defaultProduct: Partial<DBProduct> = {
   name: "",
   slug: "",
-  category: "kurtis",
+  category: "",
   price: 0,
   mrp: 0,
   image: "",
@@ -42,10 +34,39 @@ export default function ProductEditPage() {
   const isNew = params.id === "new";
 
   const [product, setProduct] = useState<Partial<DBProduct>>(defaultProduct);
+  const [categories, setCategories] = useState<DBCategory[]>([]);
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
   const [colorsInput, setColorsInput] = useState("");
   const [sizesInput, setSizesInput] = useState("");
+
+  useEffect(() => {
+    async function fetchCategories() {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("categories")
+        .select("*")
+        .order("display_order", { ascending: true });
+
+      if (error) {
+        toast.error("Failed to fetch categories");
+        return;
+      }
+
+      setCategories(data || []);
+
+      if (isNew && data?.length) {
+        const firstActive = data.find((category) => category.is_active);
+        if (firstActive) {
+          setProduct((current) =>
+            current.category ? current : { ...current, category: firstActive.slug }
+          );
+        }
+      }
+    }
+
+    fetchCategories();
+  }, [isNew]);
 
   useEffect(() => {
     if (!isNew) {
@@ -72,6 +93,11 @@ export default function ProductEditPage() {
       fetchProduct();
     }
   }, [params.id, isNew, router]);
+
+  const selectableCategories = categories.filter(
+    (category) =>
+      category.is_active || category.slug === product.category
+  );
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -174,16 +200,27 @@ export default function ProductEditPage() {
                 required
                 value={product.category || ""}
                 onChange={(e) =>
-                  setProduct({ ...product, category: e.target.value as Category })
+                  setProduct({ ...product, category: e.target.value })
                 }
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-maroon/20 focus:border-maroon"
+                disabled={selectableCategories.length === 0}
+                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-maroon/20 focus:border-maroon disabled:bg-gray-50 disabled:text-gray-500"
               >
-                {categories.map((cat) => (
-                  <option key={cat.value} value={cat.value}>
-                    {cat.label}
-                  </option>
-                ))}
+                {selectableCategories.length === 0 ? (
+                  <option value="">No active categories available</option>
+                ) : (
+                  selectableCategories.map((category) => (
+                    <option key={category.id} value={category.slug}>
+                      {category.name}
+                      {!category.is_active ? " (Inactive)" : ""}
+                    </option>
+                  ))
+                )}
               </select>
+              {selectableCategories.length === 0 && (
+                <p className="mt-1 text-sm text-gray-500">
+                  Add an active category before creating products.
+                </p>
+              )}
             </div>
 
             <div>
@@ -345,7 +382,7 @@ export default function ProductEditPage() {
         <div className="flex items-center gap-4">
           <button
             type="submit"
-            disabled={saving}
+            disabled={saving || selectableCategories.length === 0}
             className="inline-flex items-center gap-2 px-6 py-2 bg-maroon text-white rounded-lg hover:bg-maroon/90 transition-colors disabled:opacity-50"
           >
             {saving ? (

@@ -5,6 +5,7 @@ import { MessageSquare, Mail, Phone, Check, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { DBEnquiry } from "@/lib/database.types";
 import { toast } from "sonner";
+import { confirmToast } from "@/lib/confirm-toast";
 
 export default function EnquiriesPage() {
   const [enquiries, setEnquiries] = useState<DBEnquiry[]>([]);
@@ -69,19 +70,19 @@ export default function EnquiriesPage() {
     }
   }
 
-  async function deleteEnquiry(id: string) {
-    if (!confirm("Are you sure you want to delete this enquiry?")) return;
+  function deleteEnquiry(id: string) {
+    confirmToast("Are you sure you want to delete this enquiry?", async () => {
+      const supabase = createClient();
 
-    const supabase = createClient();
+      const { error } = await supabase.from("enquiries").delete().eq("id", id);
 
-    const { error } = await supabase.from("enquiries").delete().eq("id", id);
-
-    if (error) {
-      toast.error("Failed to delete enquiry");
-    } else {
-      toast.success("Enquiry deleted");
-      fetchEnquiries();
-    }
+      if (error) {
+        toast.error("Failed to delete enquiry");
+      } else {
+        toast.success("Enquiry deleted");
+        fetchEnquiries();
+      }
+    });
   }
 
   const filteredEnquiries = enquiries.filter(

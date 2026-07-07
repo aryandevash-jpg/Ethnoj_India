@@ -5,6 +5,7 @@ import { Plus, Pencil, Trash2, GripVertical, Save, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { DBCategory } from "@/lib/database.types";
 import { toast } from "sonner";
+import { confirmToast } from "@/lib/confirm-toast";
 import { CloudinaryUpload } from "@/components/CloudinaryUpload";
 
 export default function CategoriesPage() {
@@ -105,21 +106,41 @@ export default function CategoriesPage() {
     }
   }
 
-  async function deleteCategory(id: string) {
-    if (!confirm("Are you sure you want to delete this category?")) return;
+  function deleteCategory(id: string) {
+    confirmToast("Are you sure you want to delete this category?", async () => {
+      const supabase = createClient();
 
+      const { error } = await supabase
+        .from("categories")
+        .update({ is_active: false })
+        .eq("id", id);
+
+      if (error) {
+        toast.error("Failed to delete category");
+      } else {
+        toast.success("Category deleted");
+        fetchCategories();
+      }
+    });
+  }
+
+  async function toggleCategoryActive(id: string, isActive: boolean) {
     const supabase = createClient();
 
     const { error } = await supabase
       .from("categories")
-      .update({ is_active: false })
+      .update({ is_active: !isActive, updated_at: new Date().toISOString() })
       .eq("id", id);
 
     if (error) {
-      toast.error("Failed to delete category");
+      toast.error("Failed to update category status");
     } else {
-      toast.success("Category deleted");
-      fetchCategories();
+      toast.success(isActive ? "Category deactivated" : "Category activated");
+      setCategories((prev) =>
+        prev.map((category) =>
+          category.id === id ? { ...category, is_active: !isActive } : category
+        )
+      );
     }
   }
 
@@ -195,6 +216,17 @@ export default function CategoriesPage() {
               type="video"
             />
           </div>
+          <label className="mb-4 flex items-center gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={newCategory.is_active ?? true}
+              onChange={(e) =>
+                setNewCategory({ ...newCategory, is_active: e.target.checked })
+              }
+              className="h-4 w-4 rounded border-gray-300 text-maroon focus:ring-maroon/20"
+            />
+            Active (visible on the storefront)
+          </label>
           <div className="flex gap-2">
             <button
               onClick={() => saveCategory(newCategory, true)}
@@ -272,15 +304,38 @@ export default function CategoriesPage() {
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-500">{category.slug}</td>
                   <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                        category.is_active
-                          ? "bg-green-100 text-green-800"
-                          : "bg-gray-100 text-gray-800"
-                      }`}
-                    >
-                      {category.is_active ? "Active" : "Inactive"}
-                    </span>
+                    {editingId === category.id ? (
+                      <label className="flex items-center gap-2 text-sm text-gray-700">
+                        <input
+                          type="checkbox"
+                          checked={editForm.is_active ?? true}
+                          onChange={(e) =>
+                            setEditForm({ ...editForm, is_active: e.target.checked })
+                          }
+                          className="h-4 w-4 rounded border-gray-300 text-maroon focus:ring-maroon/20"
+                        />
+                        Active
+                      </label>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          toggleCategoryActive(category.id, category.is_active)
+                        }
+                        className={`inline-flex px-2 py-1 text-xs font-medium rounded-full transition-colors ${
+                          category.is_active
+                            ? "bg-green-100 text-green-800 hover:bg-green-200"
+                            : "bg-gray-100 text-gray-800 hover:bg-gray-200"
+                        }`}
+                        title={
+                          category.is_active
+                            ? "Click to deactivate"
+                            : "Click to activate"
+                        }
+                      >
+                        {category.is_active ? "Active" : "Inactive"}
+                      </button>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">

@@ -5,6 +5,7 @@ import { Star, Check, X, Trash2, Eye } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { DBReview } from "@/lib/database.types";
 import { toast } from "sonner";
+import { confirmToast } from "@/lib/confirm-toast";
 
 export default function ReviewsPage() {
   const [reviews, setReviews] = useState<DBReview[]>([]);
@@ -85,19 +86,19 @@ export default function ReviewsPage() {
     }
   }
 
-  async function deleteReview(id: string) {
-    if (!confirm("Are you sure you want to delete this review?")) return;
+  function deleteReview(id: string) {
+    confirmToast("Are you sure you want to delete this review?", async () => {
+      const supabase = createClient();
 
-    const supabase = createClient();
+      const { error } = await supabase.from("reviews").delete().eq("id", id);
 
-    const { error } = await supabase.from("reviews").delete().eq("id", id);
-
-    if (error) {
-      toast.error("Failed to delete review");
-    } else {
-      toast.success("Review deleted");
-      fetchReviews();
-    }
+      if (error) {
+        toast.error("Failed to delete review");
+      } else {
+        toast.success("Review deleted");
+        fetchReviews();
+      }
+    });
   }
 
   const filteredReviews = reviews.filter((review) => {

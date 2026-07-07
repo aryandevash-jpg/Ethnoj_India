@@ -4,30 +4,24 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, Pencil, Trash2, Search, Filter } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import type { DBProduct, Category } from "@/lib/database.types";
+import type { DBProduct, DBCategory } from "@/lib/database.types";
 import { toast } from "sonner";
-
-const categories: { value: Category; label: string }[] = [
-  { value: "co-ord-sets", label: "Co-ord Sets" },
-  { value: "kurtis", label: "Kurtis" },
-  { value: "ladies-suits", label: "Ladies Suits" },
-  { value: "sarees", label: "Sarees" },
-  { value: "lehengas", label: "Lehengas" },
-];
+import { confirmToast } from "@/lib/confirm-toast";
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<DBProduct[]>([]);
+  const [categories, setCategories] = useState<DBCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("");
 
   useEffect(() => {
     const controller = new AbortController();
-    fetchProducts(controller.signal);
+    fetchData(controller.signal);
     return () => controller.abort();
   }, []);
 
-  async function fetchProducts(signal?: AbortSignal) {
+  async function fetchData(signal?: AbortSignal) {
     try {
       const supabase = createClient();
 
@@ -38,20 +32,33 @@ export default function ProductsPage() {
         }
       }, 10000);
 
-      const { data, error } = await supabase
-        .from("products")
-        .select("*")
-        .eq("is_active", true)
-        .order("created_at", { ascending: false });
+      const [productsResult, categoriesResult] = await Promise.all([
+        supabase
+          .from("products")
+          .select("*")
+          .eq("is_active", true)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("categories")
+          .select("*")
+          .order("display_order", { ascending: true }),
+      ]);
 
       clearTimeout(timeoutId);
       if (signal?.aborted) return;
 
-      if (error) {
-        console.error("Error fetching products:", error);
+      if (productsResult.error) {
+        console.error("Error fetching products:", productsResult.error);
         toast.error("Failed to fetch products");
       } else {
-        setProducts(data || []);
+        setProducts(productsResult.data || []);
+      }
+
+      if (categoriesResult.error) {
+        console.error("Error fetching categories:", categoriesResult.error);
+        toast.error("Failed to fetch categories");
+      } else {
+        setCategories(categoriesResult.data || []);
       }
     } catch (error) {
       if (signal?.aborted) return;
@@ -64,23 +71,52 @@ export default function ProductsPage() {
     }
   }
 
-  async function deleteProduct(id: string) {
-    if (!confirm("Are you sure you want to delete this product?")) return;
+  async function fetchProducts(signal?: AbortSignal) {
+    try {
+      const supabase = createClient();
 
-    const supabase = createClient();
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .eq("is_active", true)
+        .order("created_at", { ascending: false });
 
-    const { error } = await supabase
-      .from("products")
-      .update({ is_active: false })
-      .eq("id", id);
+      if (signal?.aborted) return;
 
-    if (error) {
-      toast.error("Failed to delete product");
-    } else {
-      toast.success("Product deleted");
-      setProducts(products.filter((p) => p.id !== id));
+      if (error) {
+        console.error("Error fetching products:", error);
+        toast.error("Failed to fetch products");
+      } else {
+        setProducts(data || []);
+      }
+    } catch (error) {
+      if (signal?.aborted) return;
+      console.error("Error:", error);
+      toast.error("Connection error");
     }
   }
+
+  function deleteProduct(id: string) {
+    confirmToast("Are you sure you want to delete this product?", async () => {
+      const supabase = createClient();
+
+      const { error } = await supabase
+        .from("products")
+        .update({ is_active: false })
+        .eq("id", id);
+
+      if (error) {
+        toast.error("Failed to delete product");
+      } else {
+        toast.success("Product deleted");
+        setProducts(products.filter((p) => p.id !== id));
+      }
+    });
+  }
+
+  const categoryLabels = Object.fromEntries(
+    categories.map((category) => [category.slug, category.name])
+  );
 
   const filteredProducts = products.filter((product) => {
     const matchesSearch =
@@ -134,9 +170,9 @@ export default function ProductsPage() {
             className="pl-10 pr-8 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-maroon/20 focus:border-maroon appearance-none bg-white"
           >
             <option value="">All Categories</option>
-            {categories.map((cat) => (
-              <option key={cat.value} value={cat.value}>
-                {cat.label}
+            {categories.map((category) => (
+              <option key={category.id} value={category.slug}>
+                {category.name}
               </option>
             ))}
           </select>
@@ -187,7 +223,7 @@ export default function ProductsPage() {
                   </td>
                   <td className="px-4 py-3">
                     <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
-                      {product.category}
+                      {categoryLabels[product.category] || product.category}
                     </span>
                   </td>
                   <td className="px-4 py-3">
