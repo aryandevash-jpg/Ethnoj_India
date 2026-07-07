@@ -53,23 +53,25 @@ export function ProductCard({
           whileHover={{ scale: 1.02 }}
           transition={{ duration: 0.5 }}
         >
-          {!imageLoaded && (
+          {!imageLoaded && product.image && (
             <div className="absolute inset-0 animate-pulse bg-cream-deep" />
           )}
 
-          <motion.img
-            src={product.image}
-            alt={product.name}
-            loading="lazy"
-            onLoad={() => setImageLoaded(true)}
-            className="absolute inset-0 h-full w-full object-cover"
-            animate={{
-              scale: hovered && !product.videoUrl ? 1.08 : 1,
-              filter: hovered && !product.videoUrl ? "brightness(0.9)" : "brightness(1)",
-              opacity: product.videoUrl ? 0 : 1,
-            }}
-            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-          />
+          {product.image && (
+            <motion.img
+              src={product.image}
+              alt={product.name}
+              loading="lazy"
+              onLoad={() => setImageLoaded(true)}
+              className="absolute inset-0 h-full w-full object-cover"
+              animate={{
+                scale: hovered && !product.videoUrl ? 1.08 : 1,
+                filter: hovered && !product.videoUrl ? "brightness(0.9)" : "brightness(1)",
+                opacity: product.videoUrl ? 0 : 1,
+              }}
+              transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+            />
+          )}
 
           {product.videoUrl && (
             <motion.video
@@ -87,23 +89,25 @@ export function ProductCard({
             />
           )}
 
-          <motion.img
-            src={product.hoverImage}
-            alt=""
-            loading="lazy"
-            aria-hidden
-            className="absolute inset-0 h-full w-full object-cover"
-            initial={false}
-            animate={{
-              clipPath:
-                hovered && !product.videoUrl
+          {product.hoverImage &&
+            product.hoverImage !== product.image &&
+            !product.videoUrl && (
+            <motion.img
+              src={product.hoverImage}
+              alt=""
+              loading="lazy"
+              aria-hidden
+              className="absolute inset-0 h-full w-full object-cover"
+              initial={false}
+              animate={{
+                clipPath: hovered
                   ? "polygon(0 0, 100% 0, 100% 100%, 0 100%)"
                   : "polygon(0 0, 0 0, 0 100%, 0 100%)",
-              scale: hovered && !product.videoUrl ? 1.08 : 1,
-              opacity: product.videoUrl ? 0 : 1,
-            }}
-            transition={{ duration: 0.8, ease: [0.65, 0, 0.35, 1] }}
-          />
+                scale: hovered ? 1.08 : 1,
+              }}
+              transition={{ duration: 0.8, ease: [0.65, 0, 0.35, 1] }}
+            />
+          )}
 
           <AnimatePresence>
             {product.mrp && (

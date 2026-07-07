@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { DBProduct, Category } from "@/lib/database.types";
+import { isUuid } from "@/lib/utils";
 
 export function useProducts(options?: {
   category?: Category;
@@ -77,11 +78,11 @@ export function useProduct(id: string) {
       }
 
       try {
-        const { data, error } = await supabase
-          .from("products")
-          .select("*")
-          .or(`id.eq.${id},slug.eq.${id}`)
-          .single();
+        const query = isUuid(id)
+          ? supabase.from("products").select("*").eq("id", id)
+          : supabase.from("products").select("*").eq("slug", id);
+
+        const { data, error } = await query.single();
 
         if (error) throw error;
         setProduct(data);

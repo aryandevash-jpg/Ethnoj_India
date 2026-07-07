@@ -9,6 +9,7 @@ import { notFound } from "next/navigation";
 import { use } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { DBProduct } from "@/lib/database.types";
+import { isUuid } from "@/lib/utils";
 
 export default function ProductDetail({
   params,
@@ -31,12 +32,19 @@ export default function ProductDetail({
     async function fetchProduct() {
       const supabase = createClient();
 
-      const { data, error } = await supabase
-        .from("products")
-        .select("*")
-        .or(`slug.eq.${id},id.eq.${id}`)
-        .eq("is_active", true)
-        .single();
+      const query = isUuid(id)
+        ? supabase
+            .from("products")
+            .select("*")
+            .eq("id", id)
+            .eq("is_active", true)
+        : supabase
+            .from("products")
+            .select("*")
+            .eq("slug", id)
+            .eq("is_active", true);
+
+      const { data, error } = await query.single();
 
       if (error || !data) {
         setNotFoundState(true);
@@ -80,7 +88,9 @@ export default function ProductDetail({
     notFound();
   }
 
-  const images = [product.image, product.hover_image].filter(Boolean);
+  const images = [product.image, product.hover_image].filter(
+    (src): src is string => Boolean(src)
+  );
   const mediaItems = [
     ...images.map((src) => ({ type: "image" as const, src: src! })),
     ...(product.video_url
