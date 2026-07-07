@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
 import {
   LayoutDashboard,
   Package,
@@ -11,12 +12,14 @@ import {
   Star,
   Home,
   MessageSquare,
-  Settings,
   Menu,
   X,
   ChevronRight,
+  LogOut,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
@@ -26,7 +29,6 @@ const navItems = [
   { href: "/admin/reviews", label: "Reviews", icon: Star },
   { href: "/admin/home-config", label: "Home Page", icon: Home },
   { href: "/admin/enquiries", label: "Enquiries", icon: MessageSquare },
-  { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
 export default function AdminLayout({
@@ -35,7 +37,44 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const isLoginPage = pathname === "/admin/login";
+
+  useEffect(() => {
+    if (!isLoginPage) {
+      const supabase = createClient();
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (user) {
+          setUserEmail(user.email || null);
+        }
+      });
+    }
+  }, [isLoginPage]);
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    setMenuOpen(false);
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      toast.success("Logged out successfully");
+      router.push("/admin/login");
+      router.refresh();
+    } catch {
+      toast.error("Failed to logout");
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
+
+  if (isLoginPage) {
+    return children;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -120,15 +159,52 @@ export default function AdminLayout({
               <Menu className="h-5 w-5" />
             </button>
 
-            <div className="flex items-center gap-4 ml-auto">
-              <div className="flex items-center gap-2">
+            <div className="relative flex items-center gap-4 ml-auto">
+              <button
+                type="button"
+                onClick={() => setMenuOpen((open) => !open)}
+                className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-gray-100"
+              >
                 <div className="h-8 w-8 rounded-full bg-maroon text-white flex items-center justify-center text-sm font-medium">
-                  A
+                  {userEmail ? userEmail.charAt(0).toUpperCase() : "A"}
                 </div>
-                <span className="text-sm font-medium hidden sm:block">
-                  Admin
+                <span className="text-sm font-medium hidden sm:block max-w-[150px] truncate">
+                  {userEmail || "Admin"}
                 </span>
-              </div>
+              </button>
+
+              {menuOpen && (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Close menu"
+                    className="fixed inset-0 z-40"
+                    onClick={() => setMenuOpen(false)}
+                  />
+                  <div className="absolute right-0 top-full z-50 mt-2 w-56 rounded-lg border border-gray-200 bg-white p-2 shadow-lg">
+                    <div className="px-2 py-1.5">
+                      <p className="text-sm font-medium">Signed in as</p>
+                      <p className="text-xs text-gray-500 truncate">
+                        {userEmail || "Admin"}
+                      </p>
+                    </div>
+                    <div className="my-1 h-px bg-gray-200" />
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      disabled={isLoggingOut}
+                      className="flex w-full items-center rounded-md px-2 py-2 text-sm text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
+                    >
+                      {isLoggingOut ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <LogOut className="mr-2 h-4 w-4" />
+                      )}
+                      {isLoggingOut ? "Logging out..." : "Logout"}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </header>

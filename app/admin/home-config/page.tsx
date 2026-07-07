@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Save, Loader2, Home, Image as ImageIcon, Video, Type, Instagram, Plus, Trash2, ExternalLink } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
+import { Save, Loader2, Home, Image as ImageIcon, Video, Type, Instagram, Plus, Trash2, ExternalLink, ChevronDown, Check, Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { CloudinaryUpload } from "@/components/CloudinaryUpload";
+import type { DBProduct } from "@/lib/database.types";
 
 interface HeroConfig {
   videoUrl: string;
@@ -25,9 +26,10 @@ interface CarouselItem {
 
 interface FeaturedConfig {
   productId: string;
-  badge: string;
-  heading: string;
-  subheading: string;
+  kicker: string;
+  title: string;
+  description: string;
+  ctaLabel: string;
 }
 
 interface FooterConfig {
@@ -69,9 +71,10 @@ export default function HomeConfigPage() {
   const [carouselItems, setCarouselItems] = useState<CarouselItem[]>([]);
   const [featuredConfig, setFeaturedConfig] = useState<FeaturedConfig>({
     productId: "",
-    badge: "Bestseller",
-    heading: "Featured Product",
-    subheading: "Our most loved piece",
+    kicker: "Featured",
+    title: "Featured Product",
+    description: "Our most loved piece this season.",
+    ctaLabel: "View Details",
   });
 
   const [footerConfig, setFooterConfig] = useState<FooterConfig>({
@@ -89,11 +92,59 @@ export default function HomeConfigPage() {
     posts: [],
   });
 
+  const [products, setProducts] = useState<DBProduct[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
+  const [productDropdownOpen, setProductDropdownOpen] = useState(false);
+  const [productSearch, setProductSearch] = useState("");
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const controller = new AbortController();
     fetchConfigs(controller.signal);
+    fetchProducts();
     return () => controller.abort();
   }, []);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setProductDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  async function fetchProducts() {
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .eq("is_active", true)
+        .order("name", { ascending: true });
+
+      if (error) {
+        console.error("Error fetching products:", error);
+      } else {
+        setProducts(data || []);
+      }
+    } catch (error) {
+      console.error("Error fetching products:", error);
+    } finally {
+      setProductsLoading(false);
+    }
+  }
+
+  const filteredProducts = products.filter(
+    (p) =>
+      p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+      p.slug?.toLowerCase().includes(productSearch.toLowerCase())
+  );
+
+  const selectedProduct = products.find(
+    (p) => p.id === featuredConfig.productId || p.slug === featuredConfig.productId
+  );
 
   async function fetchConfigs(signal?: AbortSignal) {
     try {
@@ -402,63 +453,169 @@ export default function HomeConfigPage() {
           <h2 className="text-lg font-semibold text-gray-900">Featured Product</h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Select Product
+              </label>
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setProductDropdownOpen(!productDropdownOpen)}
+                  className="w-full flex items-center justify-between px-4 py-3 border border-gray-200 rounded-lg bg-white hover:border-maroon/50 focus:ring-2 focus:ring-maroon/20 focus:border-maroon transition-colors"
+                >
+                  {selectedProduct ? (
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                        {selectedProduct.image ? (
+                          <img
+                            src={selectedProduct.image}
+                            alt={selectedProduct.name}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="h-full w-full flex items-center justify-center text-gray-400">
+                            <ImageIcon className="h-5 w-5" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-left">
+                        <p className="font-medium text-gray-900">{selectedProduct.name}</p>
+                        <p className="text-xs text-gray-500">₹{selectedProduct.price.toLocaleString()}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="text-gray-400">
+                      {productsLoading ? "Loading products..." : "Choose a product"}
+                    </span>
+                  )}
+                  <ChevronDown className={`h-5 w-5 text-gray-400 transition-transform ${productDropdownOpen ? "rotate-180" : ""}`} />
+                </button>
+
+                {productDropdownOpen && (
+                  <div className="absolute z-50 mt-2 w-full bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                    <div className="p-2 border-b border-gray-100">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <input
+                          type="text"
+                          value={productSearch}
+                          onChange={(e) => setProductSearch(e.target.value)}
+                          placeholder="Search products..."
+                          className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-maroon/20 focus:border-maroon"
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+                    <div className="max-h-64 overflow-y-auto">
+                      {filteredProducts.length === 0 ? (
+                        <div className="p-4 text-center text-gray-500 text-sm">
+                          {productsLoading ? "Loading..." : "No products found"}
+                        </div>
+                      ) : (
+                        filteredProducts.map((product) => (
+                          <button
+                            key={product.id}
+                            type="button"
+                            onClick={() => {
+                              setFeaturedConfig({ ...featuredConfig, productId: product.slug || product.id });
+                              setProductDropdownOpen(false);
+                              setProductSearch("");
+                            }}
+                            className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-cream/50 transition-colors ${
+                              featuredConfig.productId === product.id || featuredConfig.productId === product.slug
+                                ? "bg-maroon/5"
+                                : ""
+                            }`}
+                          >
+                            <div className="h-12 w-12 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                              {product.image ? (
+                                <img
+                                  src={product.image}
+                                  alt={product.name}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <div className="h-full w-full flex items-center justify-center text-gray-400">
+                                  <ImageIcon className="h-6 w-6" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 text-left">
+                              <p className="font-medium text-gray-900">{product.name}</p>
+                              <p className="text-xs text-gray-500">
+                                ₹{product.price.toLocaleString()}
+                                {product.category && ` • ${product.category}`}
+                              </p>
+                            </div>
+                            {(featuredConfig.productId === product.id || featuredConfig.productId === product.slug) && (
+                              <Check className="h-5 w-5 text-maroon flex-shrink-0" />
+                            )}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Product ID
+                Kicker Text
               </label>
               <input
                 type="text"
-                value={featuredConfig.productId}
+                value={featuredConfig.kicker}
                 onChange={(e) =>
-                  setFeaturedConfig({ ...featuredConfig, productId: e.target.value })
+                  setFeaturedConfig({ ...featuredConfig, kicker: e.target.value })
                 }
-                placeholder="Enter product ID or slug"
+                placeholder="e.g., Featured, Bestseller"
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-maroon/20 focus:border-maroon"
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Badge Text
+                Title
               </label>
               <input
                 type="text"
-                value={featuredConfig.badge}
+                value={featuredConfig.title}
                 onChange={(e) =>
-                  setFeaturedConfig({ ...featuredConfig, badge: e.target.value })
+                  setFeaturedConfig({ ...featuredConfig, title: e.target.value })
                 }
+                placeholder="Section title"
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-maroon/20 focus:border-maroon"
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Heading
+                CTA Label
               </label>
               <input
                 type="text"
-                value={featuredConfig.heading}
+                value={featuredConfig.ctaLabel}
                 onChange={(e) =>
-                  setFeaturedConfig({ ...featuredConfig, heading: e.target.value })
+                  setFeaturedConfig({ ...featuredConfig, ctaLabel: e.target.value })
                 }
+                placeholder="e.g., View Details, Shop Now"
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-maroon/20 focus:border-maroon"
               />
             </div>
 
-            <div>
+            <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Subheading
+                Description
               </label>
-              <input
-                type="text"
-                value={featuredConfig.subheading}
+              <textarea
+                value={featuredConfig.description}
                 onChange={(e) =>
-                  setFeaturedConfig({
-                    ...featuredConfig,
-                    subheading: e.target.value,
-                  })
+                  setFeaturedConfig({ ...featuredConfig, description: e.target.value })
                 }
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-maroon/20 focus:border-maroon"
+                placeholder="A short description for the featured section"
+                rows={3}
+                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-maroon/20 focus:border-maroon resize-none"
               />
             </div>
           </div>

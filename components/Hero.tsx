@@ -2,7 +2,7 @@
 
 import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState } from "react";
 import { useAdminConfig } from "@/lib/admin-config";
 import { ChevronDown, Volume2, VolumeX } from "lucide-react";
 

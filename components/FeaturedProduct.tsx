@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useScroll, useTransform, useInView } from "framer-motion";
+import { motion } from "framer-motion";
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { useAdminConfig } from "@/lib/admin-config";
@@ -15,19 +15,9 @@ export function FeaturedProduct() {
 
   const sectionRef = useRef<HTMLElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const isInView = useInView(sectionRef, { once: true, margin: "-100px" });
   const [isPlaying, setIsPlaying] = useState(true);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const add = useCart((s) => s.add);
-
-  const { scrollYProgress } = useScroll({
-    target: sectionRef,
-    offset: ["start end", "end start"],
-  });
-
-  const y1 = useTransform(scrollYProgress, [0, 1], [100, -100]);
-  const y2 = useTransform(scrollYProgress, [0, 1], [50, -50]);
-  const rotate = useTransform(scrollYProgress, [0, 1], [-5, 5]);
 
   const toggleVideo = () => {
     if (videoRef.current) {
@@ -40,7 +30,13 @@ export function FeaturedProduct() {
     }
   };
 
-  if (!isLoaded || !product) return null;
+  // Don't render until config is loaded
+  if (!isLoaded) return null;
+  
+  // If no product is configured, don't show the section
+  if (!product) {
+    return null;
+  }
 
   return (
     <section
@@ -54,11 +50,13 @@ export function FeaturedProduct() {
       {/* Animated background shapes */}
       <motion.div
         className="absolute -left-64 top-0 h-[800px] w-[800px] rounded-full bg-gold/5 blur-3xl"
-        style={{ y: y1 }}
+        animate={{ y: [0, -50, 0] }}
+        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
       />
       <motion.div
         className="absolute -right-64 bottom-0 h-[600px] w-[600px] rounded-full bg-cream/5 blur-3xl"
-        style={{ y: y2 }}
+        animate={{ y: [0, 30, 0] }}
+        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
       />
       
       {/* Floating decorative elements */}
@@ -82,7 +80,8 @@ export function FeaturedProduct() {
         {/* Section badge */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
-          animate={isInView ? { opacity: 1, y: 0 } : {}}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.1 }}
           className="mb-12 flex justify-center"
         >
           <div className="inline-flex items-center gap-2 rounded-full bg-gold/20 px-5 py-2 backdrop-blur-sm">
@@ -95,26 +94,30 @@ export function FeaturedProduct() {
           {/* Image/Video Column */}
           <motion.div
             initial={{ opacity: 0, x: -60 }}
-            animate={isInView ? { opacity: 1, x: 0 } : {}}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, amount: 0.1 }}
             transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
             className="relative"
           >
             {/* Main media container */}
             <motion.div
-              style={{ rotate }}
               className="relative"
+              whileHover={{ rotate: 1 }}
+              transition={{ duration: 0.3 }}
             >
               {/* Decorative frame */}
               <motion.div
                 className="absolute -inset-4 rounded-[2.5rem] border border-gold/30"
                 initial={{ opacity: 0, scale: 0.9 }}
-                animate={isInView ? { opacity: 1, scale: 1 } : {}}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
                 transition={{ delay: 0.3 }}
               />
               <motion.div
                 className="absolute -inset-8 rounded-[3rem] border border-gold/10"
                 initial={{ opacity: 0, scale: 0.9 }}
-                animate={isInView ? { opacity: 1, scale: 1 } : {}}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
                 transition={{ delay: 0.5 }}
               />
 
@@ -157,7 +160,8 @@ export function FeaturedProduct() {
                 <motion.div
                   className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"
                   initial={{ x: "-100%" }}
-                  animate={isInView ? { x: "200%" } : {}}
+                  whileInView={{ x: "200%" }}
+                  viewport={{ once: true }}
                   transition={{ delay: 0.8, duration: 1.5, ease: "easeInOut" }}
                 />
               </div>
@@ -166,7 +170,8 @@ export function FeaturedProduct() {
             {/* Rating badge */}
             <motion.div
               initial={{ opacity: 0, scale: 0.8, y: 20 }}
-              animate={isInView ? { opacity: 1, scale: 1, y: 0 } : {}}
+              whileInView={{ opacity: 1, scale: 1, y: 0 }}
+              viewport={{ once: true }}
               transition={{ delay: 0.6, type: "spring" }}
               className="absolute -bottom-6 -right-6 z-10 rounded-2xl bg-cream p-5 shadow-warm md:-bottom-8 md:-right-8"
             >
@@ -175,7 +180,8 @@ export function FeaturedProduct() {
                   <motion.div
                     key={i}
                     initial={{ opacity: 0, scale: 0, rotate: -180 }}
-                    animate={isInView ? { opacity: 1, scale: 1, rotate: 0 } : {}}
+                    whileInView={{ opacity: 1, scale: 1, rotate: 0 }}
+                    viewport={{ once: true }}
                     transition={{ delay: 0.8 + i * 0.1 }}
                   >
                       <Star
@@ -192,7 +198,8 @@ export function FeaturedProduct() {
             {product.mrp && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.8, x: -20 }}
-                animate={isInView ? { opacity: 1, scale: 1, x: 0 } : {}}
+                whileInView={{ opacity: 1, scale: 1, x: 0 }}
+                viewport={{ once: true }}
                 transition={{ delay: 0.7, type: "spring" }}
                 className="absolute -left-4 top-8 z-10 rounded-full bg-gold px-4 py-2 shadow-lg md:-left-6"
               >
@@ -206,13 +213,15 @@ export function FeaturedProduct() {
           {/* Content Column */}
           <motion.div
             initial={{ opacity: 0, x: 60 }}
-            animate={isInView ? { opacity: 1, x: 0 } : {}}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
             transition={{ duration: 1, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
           >
             <motion.h2
               className="font-display text-4xl text-cream md:text-5xl lg:text-6xl"
               initial={{ opacity: 0, y: 30 }}
-              animate={isInView ? { opacity: 1, y: 0 } : {}}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
               transition={{ delay: 0.3 }}
             >
               {config.title}
@@ -220,7 +229,8 @@ export function FeaturedProduct() {
 
             <motion.p
               initial={{ opacity: 0, y: 20 }}
-              animate={isInView ? { opacity: 1, y: 0 } : {}}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
               transition={{ delay: 0.4 }}
               className="mt-6 text-lg leading-relaxed text-cream/70"
             >
@@ -230,7 +240,8 @@ export function FeaturedProduct() {
             {/* Price */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
-              animate={isInView ? { opacity: 1, y: 0 } : {}}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
               transition={{ delay: 0.5 }}
               className="mt-8 flex items-baseline gap-4"
             >
@@ -247,7 +258,8 @@ export function FeaturedProduct() {
             {/* Sizes */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
-              animate={isInView ? { opacity: 1, y: 0 } : {}}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
               transition={{ delay: 0.6 }}
               className="mt-8"
             >
@@ -263,7 +275,8 @@ export function FeaturedProduct() {
                         : "border border-cream/30 text-cream hover:border-cream"
                     }`}
                     initial={{ opacity: 0, scale: 0.8 }}
-                    animate={isInView ? { opacity: 1, scale: 1 } : {}}
+                    whileInView={{ opacity: 1, scale: 1 }}
+                    viewport={{ once: true }}
                     transition={{ delay: 0.6 + i * 0.05 }}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
@@ -285,7 +298,8 @@ export function FeaturedProduct() {
             {/* Colors */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
-              animate={isInView ? { opacity: 1, y: 0 } : {}}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
               transition={{ delay: 0.7 }}
               className="mt-8"
             >
@@ -296,7 +310,8 @@ export function FeaturedProduct() {
                     key={color}
                     className="group relative"
                     initial={{ opacity: 0, scale: 0 }}
-                    animate={isInView ? { opacity: 1, scale: 1 } : {}}
+                    whileInView={{ opacity: 1, scale: 1 }}
+                    viewport={{ once: true }}
                     transition={{ delay: 0.7 + i * 0.1, type: "spring" }}
                     whileHover={{ scale: 1.2 }}
                     whileTap={{ scale: 0.9 }}
@@ -313,7 +328,8 @@ export function FeaturedProduct() {
             {/* CTA Buttons */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
-              animate={isInView ? { opacity: 1, y: 0 } : {}}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
               transition={{ delay: 0.8 }}
               className="mt-10 flex flex-wrap gap-4"
             >
@@ -378,7 +394,8 @@ export function FeaturedProduct() {
             {/* Trust badges */}
             <motion.div
               initial={{ opacity: 0 }}
-              animate={isInView ? { opacity: 1 } : {}}
+              whileInView={{ opacity: 1 }}
+              viewport={{ once: true }}
               transition={{ delay: 1 }}
               className="mt-10 flex flex-wrap gap-6 border-t border-cream/20 pt-8 text-xs text-cream/50"
             >

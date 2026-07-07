@@ -170,13 +170,28 @@ export const useAdminConfig = create<AdminConfigStore>((set, get) => ({
 
         // Fetch featured product if productId is set
         let featuredProd: DBProduct | null = null;
-        if (newConfig.featuredProduct.productId) {
-          const { data: product } = await supabase
+        const productIdOrSlug = newConfig.featuredProduct.productId;
+        
+        if (productIdOrSlug) {
+          // Try finding by slug first
+          let { data: product } = await supabase
             .from("products")
             .select("*")
-            .or(`slug.eq.${newConfig.featuredProduct.productId},id.eq.${newConfig.featuredProduct.productId}`)
+            .eq("slug", productIdOrSlug)
             .eq("is_active", true)
-            .single();
+            .maybeSingle();
+
+          // If not found by slug, try by id
+          if (!product) {
+            const { data: productById } = await supabase
+              .from("products")
+              .select("*")
+              .eq("id", productIdOrSlug)
+              .eq("is_active", true)
+              .maybeSingle();
+            
+            product = productById;
+          }
 
           if (product) {
             featuredProd = product;
