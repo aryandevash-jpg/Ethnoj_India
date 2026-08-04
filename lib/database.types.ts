@@ -123,3 +123,84 @@ export interface DBAdmin {
   created_at: string;
   last_login?: string;
 }
+
+export interface DBUserProfile {
+  id: string;
+  email: string;
+  full_name?: string;
+  phone?: string;
+  avatar_url?: string;
+  date_of_birth?: string;
+  gender?: "male" | "female" | "other" | "prefer_not_to_say";
+  email_verified: boolean;
+  phone_verified: boolean;
+  marketing_consent: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DBUserAddress {
+  id: string;
+  user_id: string;
+  label: string;
+  full_name: string;
+  phone: string;
+  address_line1: string;
+  address_line2?: string;
+  city: string;
+  state: string;
+  pincode: string;
+  country: string;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DBWishlistItem {
+  id: string;
+  user_id: string;
+  product_id: string;
+  created_at: string;
+  product?: DBProduct;
+}
+
+export type CouponDiscountType = 'flat' | 'percentage' | 'free_shipping';
+
+export interface DBCoupon {
+  id: string;
+  code: string;
+  description?: string | null;
+  discount_type: CouponDiscountType;
+  discount_value: number;
+  max_discount?: number | null;
+  min_order_value: number;
+  usage_limit?: number | null;
+  usage_limit_per_user?: number | null;
+  times_used: number;
+  starts_at: string;
+  expires_at?: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DBCouponUsage {
+  id: string;
+  coupon_id: string;
+  user_id?: string;
+  order_id?: string;
+  user_email?: string;
+  discount_amount: number;
+  used_at: string;
+}
+
+export interface CouponValidationResult {
+  valid: boolean;
+  coupon_id?: string;
+  discount_type?: CouponDiscountType;
+  discount_value?: number;
+  max_discount?: number;
+  calculated_discount?: number;
+  free_shipping?: boolean;
+  message: string;
+}
