@@ -2,22 +2,34 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { useAdminConfig } from "@/lib/admin-config";
 import { formatINR, useCart } from "@/lib/cart";
 import { ShoppingBag, Heart, Star, Play, Pause, Sparkles, ArrowRight, Check } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/use-auth";
 
 export function FeaturedProduct() {
   const config = useAdminConfig((s) => s.config.featuredProduct);
   const product = useAdminConfig((s) => s.featuredProduct);
   const isLoaded = useAdminConfig((s) => s.isLoaded);
+  const router = useRouter();
 
   const sectionRef = useRef<HTMLElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(true);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const add = useCart((s) => s.add);
+  const { isAuthenticated } = useAuth();
+
+  const requireAuth = (action: () => void) => {
+    if (!isAuthenticated) {
+      router.push(`/auth/login?redirectTo=${encodeURIComponent(window.location.pathname)}`);
+      return;
+    }
+    action();
+  };
 
   const toggleVideo = () => {
     if (videoRef.current) {
@@ -356,22 +368,24 @@ export function FeaturedProduct() {
 
               <motion.button
                 onClick={() => {
-                  const size = selectedSize || (product.sizes || [])[0] || "";
-                  add({
-                    id: product.slug || product.id,
-                    name: product.name,
-                    price: product.price,
-                    mrp: product.mrp || product.price,
-                    image: product.image,
-                    hoverImage: product.hover_image || product.image,
-                    category: product.category as any,
-                    colors: product.colors || [],
-                    sizes: product.sizes || [],
-                    description: product.description || "",
-                    rating: product.rating || 0,
-                    reviews: product.reviews_count || 0,
-                  }, size);
-                  toast.success("Added to bag", { description: product.name });
+                  requireAuth(() => {
+                    const size = selectedSize || (product.sizes || [])[0] || "";
+                    add({
+                      id: product.slug || product.id,
+                      name: product.name,
+                      price: product.price,
+                      mrp: product.mrp || product.price,
+                      image: product.image,
+                      hoverImage: product.hover_image || product.image,
+                      category: product.category as any,
+                      colors: product.colors || [],
+                      sizes: product.sizes || [],
+                      description: product.description || "",
+                      rating: product.rating || 0,
+                      reviews: product.reviews_count || 0,
+                    }, size);
+                    toast.success("Added to bag", { description: product.name });
+                  });
                 }}
                 className="flex items-center gap-2 rounded-full border border-cream/50 px-8 py-4 text-sm font-medium text-cream transition hover:border-cream hover:bg-cream/10"
                 whileHover={{ scale: 1.02 }}
@@ -382,7 +396,7 @@ export function FeaturedProduct() {
               </motion.button>
 
               <motion.button
-                onClick={() => toast("Saved to wishlist", { description: product.name })}
+                onClick={() => requireAuth(() => toast("Saved to wishlist", { description: product.name }))}
                 className="rounded-full border border-cream/50 p-4 text-cream transition hover:border-cream hover:bg-cream/10"
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.95 }}

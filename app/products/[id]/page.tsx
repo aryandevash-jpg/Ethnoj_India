@@ -5,11 +5,12 @@ import { motion } from "framer-motion";
 import { Heart, ShieldCheck, Truck, RotateCcw, Star } from "lucide-react";
 import { formatINR, useCart } from "@/lib/cart";
 import { toast } from "sonner";
-import { notFound } from "next/navigation";
+import { notFound, useRouter } from "next/navigation";
 import { use } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { DBProduct } from "@/lib/database.types";
 import { isUuid } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function ProductDetail({
   params,
@@ -17,16 +18,28 @@ export default function ProductDetail({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const router = useRouter();
   const [product, setProduct] = useState<DBProduct | null>(null);
   const [categoryName, setCategoryName] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [notFoundState, setNotFoundState] = useState(false);
+  
+  const { isAuthenticated } = useAuth();
 
   const add = useCart((s) => s.add);
   const setOpen = useCart((s) => s.setOpen);
   const [size, setSize] = useState<string>("");
   const [activeMedia, setActiveMedia] = useState<string>("");
   const [activeMediaType, setActiveMediaType] = useState<"image" | "video">("image");
+
+  const requireAuth = (action: () => void, redirectPath?: string) => {
+    if (!isAuthenticated) {
+      const fallbackPath = redirectPath || `/products/${id}`;
+      router.push(`/auth/login?redirectTo=${encodeURIComponent(fallbackPath)}`);
+      return;
+    }
+    action();
+  };
 
   useEffect(() => {
     async function fetchProduct() {
@@ -248,42 +261,46 @@ export default function ProductDetail({
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <button
               onClick={() => {
-                add(
-                  {
-                    id: product.slug || product.id,
-                    name: product.name,
-                    price: product.price,
-                    mrp: product.mrp || product.price,
-                    image: product.image,
-                    hoverImage: product.hover_image || product.image,
-                    category: product.category as any,
-                    colors: product.colors || [],
-                    sizes: product.sizes || [],
-                    description: product.description || "",
-                    rating: product.rating || 0,
-                    reviews: product.reviews_count || 0,
-                  },
-                  size
-                );
-                toast.success("Added to bag", { description: product.name });
-                setOpen(true);
+                requireAuth(() => {
+                  add(
+                    {
+                      id: product.slug || product.id,
+                      name: product.name,
+                      price: product.price,
+                      mrp: product.mrp || product.price,
+                      image: product.image,
+                      hoverImage: product.hover_image || product.image,
+                      category: product.category as any,
+                      colors: product.colors || [],
+                      sizes: product.sizes || [],
+                      description: product.description || "",
+                      rating: product.rating || 0,
+                      reviews: product.reviews_count || 0,
+                    },
+                    size
+                  );
+                  toast.success("Added to bag", { description: product.name });
+                  setOpen(true);
+                });
               }}
               className="flex-1 rounded-full bg-maroon py-3.5 text-sm font-medium text-cream transition hover:bg-maroon-deep"
             >
               Add to Bag
             </button>
             <button
-              onClick={() =>
-                toast(
-                  "Razorpay checkout will open here once payments are connected"
-                )
-              }
-              className="flex-1 rounded-full border border-maroon py-3.5 text-sm font-medium text-maroon transition hover:bg-maroon hover:text-cream"
+              onClick={() => {
+                const productId = product.slug || product.id;
+                const checkoutUrl = `/checkout?product=${encodeURIComponent(productId)}&size=${encodeURIComponent(size || "Free Size")}&qty=1`;
+                requireAuth(() => {
+                  router.push(checkoutUrl);
+                }, checkoutUrl);
+              }}
+              className="flex-1 rounded-full border border-maroon py-3.5 text-sm font-medium text-maroon transition hover:bg-maroon hover:text-cream flex items-center justify-center gap-2"
             >
               Buy Now
             </button>
             <button
-              onClick={() => toast("Saved to wishlist")}
+              onClick={() => requireAuth(() => toast("Saved to wishlist"))}
               className="rounded-full border border-gold/40 px-4 hover:bg-cream-deep"
             >
               <Heart className="h-4 w-4" />

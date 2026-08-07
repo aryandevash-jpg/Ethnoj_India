@@ -1,6 +1,14 @@
 -- Coupon System Schema for Ethnoj
 -- Run this in Supabase SQL Editor
 
+-- ============================================================
+-- OPTION 1: If you have an existing 'coupons' table with different
+-- structure, run these DROP statements first (uncomment both lines):
+-- ============================================================
+DROP TABLE IF EXISTS coupon_usage CASCADE;
+DROP TABLE IF EXISTS coupons CASCADE;
+-- ============================================================
+
 -- Coupons Table
 CREATE TABLE IF NOT EXISTS coupons (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -36,6 +44,21 @@ CREATE TABLE IF NOT EXISTS coupons (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Add missing columns if table already exists
+ALTER TABLE coupons ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE coupons ADD COLUMN IF NOT EXISTS discount_type VARCHAR(20);
+ALTER TABLE coupons ADD COLUMN IF NOT EXISTS discount_value DECIMAL(10, 2) DEFAULT 0;
+ALTER TABLE coupons ADD COLUMN IF NOT EXISTS max_discount DECIMAL(10, 2);
+ALTER TABLE coupons ADD COLUMN IF NOT EXISTS min_order_value DECIMAL(10, 2) DEFAULT 0;
+ALTER TABLE coupons ADD COLUMN IF NOT EXISTS usage_limit INTEGER;
+ALTER TABLE coupons ADD COLUMN IF NOT EXISTS usage_limit_per_user INTEGER DEFAULT 1;
+ALTER TABLE coupons ADD COLUMN IF NOT EXISTS times_used INTEGER DEFAULT 0;
+ALTER TABLE coupons ADD COLUMN IF NOT EXISTS starts_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+ALTER TABLE coupons ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE coupons ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;
+ALTER TABLE coupons ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+ALTER TABLE coupons ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+
 -- Coupon Usage Tracking Table
 CREATE TABLE IF NOT EXISTS coupon_usage (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -50,10 +73,20 @@ CREATE TABLE IF NOT EXISTS coupon_usage (
 -- Create indexes for better query performance
 CREATE INDEX IF NOT EXISTS idx_coupons_code ON coupons(code);
 CREATE INDEX IF NOT EXISTS idx_coupons_is_active ON coupons(is_active) WHERE is_active = true;
-CREATE INDEX IF NOT EXISTS idx_coupons_expires_at ON coupons(expires_at);
 CREATE INDEX IF NOT EXISTS idx_coupon_usage_coupon_id ON coupon_usage(coupon_id);
 CREATE INDEX IF NOT EXISTS idx_coupon_usage_user_id ON coupon_usage(user_id);
 CREATE INDEX IF NOT EXISTS idx_coupon_usage_user_email ON coupon_usage(user_email);
+
+-- Create expires_at index only if column exists (safe creation)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'coupons' AND column_name = 'expires_at'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS idx_coupons_expires_at ON coupons(expires_at);
+  END IF;
+END $$;
 
 -- Row Level Security
 ALTER TABLE coupons ENABLE ROW LEVEL SECURITY;

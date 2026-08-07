@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Minus, Plus, ShoppingBag, Trash2, Ticket, Loader2, Check, Truck } from "lucide-react";
 import { formatINR, useCart } from "@/lib/cart";
 import { validateCoupon } from "@/hooks/use-coupons";
+import { useAuth } from "@/hooks/use-auth";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import type { CouponValidationResult } from "@/lib/database.types";
@@ -13,7 +15,9 @@ const SHIPPING_FEE = 99;
 const FREE_SHIPPING_THRESHOLD = 1499;
 
 export function CartDrawer() {
+  const router = useRouter();
   const { items, open, setOpen, remove, setQty, subtotal, clear } = useCart();
+  const { isAuthenticated } = useAuth();
   
   const [couponCode, setCouponCode] = useState("");
   const [isValidating, setIsValidating] = useState(false);
@@ -333,14 +337,19 @@ export function CartDrawer() {
                     Clear Bag
                   </button>
                   <button
-                    onClick={() =>
-                      toast(
-                        "Razorpay checkout will open here once payments are connected"
-                      )
-                    }
-                    className="flex-1 rounded-full bg-maroon py-3 text-sm font-medium text-cream transition hover:bg-maroon-deep"
+                    onClick={() => {
+                      if (!isAuthenticated) {
+                        router.push("/auth/login?redirectTo=/checkout");
+                        setOpen(false);
+                        return;
+                      }
+                      
+                      setOpen(false);
+                      router.push("/checkout");
+                    }}
+                    className="flex-1 rounded-full bg-maroon py-3 text-sm font-medium text-cream transition hover:bg-maroon-deep disabled:opacity-50 flex items-center justify-center gap-2"
                   >
-                    Checkout
+                    Proceed to Checkout
                   </button>
                 </div>
               </div>

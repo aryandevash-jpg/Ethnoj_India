@@ -6,9 +6,8 @@ import { Heart, Search, ShoppingBag, Menu, X, User, LogOut, Package, MapPin, Loc
 import { motion, AnimatePresence, useScroll, useMotionValueEvent } from "framer-motion";
 import { useCart } from "@/lib/cart";
 import { useWishlist } from "@/lib/wishlist";
-import { useState, useEffect } from "react";
-import { createClient } from "@/lib/supabase/client";
-import type { User as SupabaseUser } from "@supabase/supabase-js";
+import { useState } from "react";
+import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 
 const links = [
@@ -49,8 +48,8 @@ export function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [user, setUser] = useState<SupabaseUser | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+
+  const { user, isLoading, signOut } = useAuth();
 
   const { scrollY } = useScroll();
 
@@ -58,35 +57,16 @@ export function Navbar() {
     setIsScrolled(latest > 50);
   });
 
-  useEffect(() => {
-    const supabase = createClient();
-
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-      setIsLoading(false);
-    };
-
-    getUser();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
   const handleLogout = async () => {
-    try {
-      const supabase = createClient();
-      await supabase.auth.signOut();
-      setUser(null);
-      setIsUserMenuOpen(false);
+    const result = await signOut();
+    setIsUserMenuOpen(false);
+    
+    if (result.success) {
       toast.success("Logged out successfully");
       router.push("/");
       router.refresh();
-    } catch {
-      toast.error("Failed to logout");
+    } else {
+      toast.error(result.error || "Failed to logout");
     }
   };
 
@@ -204,116 +184,99 @@ export function Navbar() {
               </AnimatePresence>
             </motion.button>
 
-            {/* User Account Menu */}
-            <div className="relative hidden md:block">
-              {!isLoading && (
-                <>
-                  {user ? (
+            {/* User Account Menu - Only visible when logged in */}
+            {!isLoading && user && (
+              <div className="relative hidden md:block">
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                  className="rounded-full p-2.5 text-ink/70 transition hover:bg-cream-deep hover:text-maroon"
+                  aria-label="User menu"
+                >
+                  <User className="h-5 w-5" />
+                </motion.button>
+                
+                <AnimatePresence>
+                  {isUserMenuOpen && (
                     <>
-                      <motion.button
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                        className="rounded-full p-2.5 text-ink/70 transition hover:bg-cream-deep hover:text-maroon"
-                        aria-label="User menu"
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-40"
+                        onClick={() => setIsUserMenuOpen(false)}
+                      />
+                      <motion.div
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                        transition={{ duration: 0.2 }}
+                        className="absolute right-0 top-full mt-2 w-56 rounded-xl bg-white shadow-warm border border-gold/20 overflow-hidden z-50"
                       >
-                        <User className="h-5 w-5" />
-                      </motion.button>
-                      
-                      <AnimatePresence>
-                        {isUserMenuOpen && (
-                          <>
-                            <motion.div
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              exit={{ opacity: 0 }}
-                              className="fixed inset-0 z-40"
-                              onClick={() => setIsUserMenuOpen(false)}
-                            />
-                            <motion.div
-                              initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                              animate={{ opacity: 1, y: 0, scale: 1 }}
-                              exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                              transition={{ duration: 0.2 }}
-                              className="absolute right-0 top-full mt-2 w-56 rounded-xl bg-white shadow-warm border border-gold/20 overflow-hidden z-50"
-                            >
-                              <div className="p-3 border-b border-gold/20 bg-cream-deep/50">
-                                <p className="text-sm font-medium text-ink truncate">
-                                  {user.user_metadata?.full_name || "Welcome"}
-                                </p>
-                                <p className="text-xs text-ink/60 truncate">{user.email}</p>
-                              </div>
-                              <div className="p-2">
-                                <Link
-                                  href="/account"
-                                  onClick={() => setIsUserMenuOpen(false)}
-                                  className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-ink/80 hover:bg-cream-deep hover:text-maroon transition"
-                                >
-                                  <User className="h-4 w-4" />
-                                  My Profile
-                                </Link>
-                                <Link
-                                  href="/account/orders"
-                                  onClick={() => setIsUserMenuOpen(false)}
-                                  className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-ink/80 hover:bg-cream-deep hover:text-maroon transition"
-                                >
-                                  <Package className="h-4 w-4" />
-                                  My Orders
-                                </Link>
-                                <Link
-                                  href="/account/wishlist"
-                                  onClick={() => setIsUserMenuOpen(false)}
-                                  className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-ink/80 hover:bg-cream-deep hover:text-maroon transition"
-                                >
-                                  <Heart className="h-4 w-4" />
-                                  Wishlist
-                                </Link>
-                                <Link
-                                  href="/account/addresses"
-                                  onClick={() => setIsUserMenuOpen(false)}
-                                  className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-ink/80 hover:bg-cream-deep hover:text-maroon transition"
-                                >
-                                  <MapPin className="h-4 w-4" />
-                                  Addresses
-                                </Link>
-                                <Link
-                                  href="/account/change-password"
-                                  onClick={() => setIsUserMenuOpen(false)}
-                                  className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-ink/80 hover:bg-cream-deep hover:text-maroon transition"
-                                >
-                                  <Lock className="h-4 w-4" />
-                                  Change Password
-                                </Link>
-                              </div>
-                              <div className="p-2 border-t border-gold/20">
-                                <button
-                                  onClick={handleLogout}
-                                  className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm text-destructive hover:bg-destructive/10 transition"
-                                >
-                                  <LogOut className="h-4 w-4" />
-                                  Logout
-                                </button>
-                              </div>
-                            </motion.div>
-                          </>
-                        )}
-                      </AnimatePresence>
+                        <div className="p-3 border-b border-gold/20 bg-cream-deep/50">
+                          <p className="text-sm font-medium text-ink truncate">
+                            {user.user_metadata?.full_name || "Welcome"}
+                          </p>
+                          <p className="text-xs text-ink/60 truncate">{user.email}</p>
+                        </div>
+                        <div className="p-2">
+                          <Link
+                            href="/account"
+                            onClick={() => setIsUserMenuOpen(false)}
+                            className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-ink/80 hover:bg-cream-deep hover:text-maroon transition"
+                          >
+                            <User className="h-4 w-4" />
+                            My Profile
+                          </Link>
+                          <Link
+                            href="/account/orders"
+                            onClick={() => setIsUserMenuOpen(false)}
+                            className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-ink/80 hover:bg-cream-deep hover:text-maroon transition"
+                          >
+                            <Package className="h-4 w-4" />
+                            My Orders
+                          </Link>
+                          <Link
+                            href="/account/wishlist"
+                            onClick={() => setIsUserMenuOpen(false)}
+                            className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-ink/80 hover:bg-cream-deep hover:text-maroon transition"
+                          >
+                            <Heart className="h-4 w-4" />
+                            Wishlist
+                          </Link>
+                          <Link
+                            href="/account/addresses"
+                            onClick={() => setIsUserMenuOpen(false)}
+                            className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-ink/80 hover:bg-cream-deep hover:text-maroon transition"
+                          >
+                            <MapPin className="h-4 w-4" />
+                            Addresses
+                          </Link>
+                          <Link
+                            href="/account/change-password"
+                            onClick={() => setIsUserMenuOpen(false)}
+                            className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-ink/80 hover:bg-cream-deep hover:text-maroon transition"
+                          >
+                            <Lock className="h-4 w-4" />
+                            Change Password
+                          </Link>
+                        </div>
+                        <div className="p-2 border-t border-gold/20">
+                          <button
+                            onClick={handleLogout}
+                            className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm text-destructive hover:bg-destructive/10 transition"
+                          >
+                            <LogOut className="h-4 w-4" />
+                            Logout
+                          </button>
+                        </div>
+                      </motion.div>
                     </>
-                  ) : (
-                    <Link href="/auth/login">
-                      <motion.button
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.95 }}
-                        className="rounded-full p-2.5 text-ink/70 transition hover:bg-cream-deep hover:text-maroon"
-                        aria-label="Login"
-                      >
-                        <User className="h-5 w-5" />
-                      </motion.button>
-                    </Link>
                   )}
-                </>
-              )}
-            </div>
+                </AnimatePresence>
+              </div>
+            )}
 
             <motion.button
               whileHover={{ scale: 1.1 }}

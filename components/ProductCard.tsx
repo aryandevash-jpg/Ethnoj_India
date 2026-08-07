@@ -2,11 +2,13 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Heart, ShoppingBag, Eye } from "lucide-react";
 import { useState } from "react";
 import type { Product } from "@/lib/products";
 import { formatINR, useCart } from "@/lib/cart";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/use-auth";
 
 const cardVariants = {
   hidden: { opacity: 0, y: 40, scale: 0.95 },
@@ -29,9 +31,20 @@ export function ProductCard({
   product: Product;
   index?: number;
 }) {
+  const router = useRouter();
   const [hovered, setHovered] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const add = useCart((s) => s.add);
+  const { isAuthenticated } = useAuth();
+
+  const requireAuth = (action: () => void, redirectPath?: string) => {
+    if (!isAuthenticated) {
+      const currentPath = redirectPath || window.location.pathname;
+      router.push(`/auth/login?redirectTo=${encodeURIComponent(currentPath)}`);
+      return;
+    }
+    action();
+  };
 
   return (
     <motion.div
@@ -125,7 +138,9 @@ export function ProductCard({
           <motion.button
             onClick={(e) => {
               e.preventDefault();
-              toast("Saved to wishlist", { description: product.name });
+              requireAuth(() => {
+                toast("Saved to wishlist", { description: product.name });
+              });
             }}
             className="absolute right-3 top-3 rounded-full bg-cream/95 p-2.5 text-ink/80 shadow-lg backdrop-blur-sm transition hover:bg-cream hover:text-maroon"
             initial={{ opacity: 0, y: -10, scale: 0.8 }}
@@ -153,8 +168,10 @@ export function ProductCard({
             <motion.button
               onClick={(e) => {
                 e.preventDefault();
-                add(product, product.sizes[0]);
-                toast.success("Added to bag", { description: product.name });
+                requireAuth(() => {
+                  add(product, product.sizes[0]);
+                  toast.success("Added to bag", { description: product.name });
+                });
               }}
               className="flex flex-1 items-center justify-center gap-2 rounded-full bg-ink/90 px-4 py-3 text-xs font-medium tracking-wide text-cream backdrop-blur-sm transition hover:bg-ink"
               whileHover={{ scale: 1.02 }}
