@@ -4,7 +4,6 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { ProductCard } from "@/components/ProductCard";
 import { motion } from "framer-motion";
 import { useSearchParams } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import type { DBProduct, DBCategory } from "@/lib/database.types";
 
 type Sort = "featured" | "price-asc" | "price-desc";
@@ -25,23 +24,16 @@ function ProductsContent() {
   }, []);
 
   async function fetchData() {
-    const supabase = createClient();
-
     const [productsRes, categoriesRes] = await Promise.all([
-      supabase
-        .from("products")
-        .select("*")
-        .eq("is_active", true)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("categories")
-        .select("*")
-        .eq("is_active", true)
-        .order("display_order", { ascending: true }),
+      fetch("/api/products"),
+      fetch("/api/categories"),
     ]);
 
-    if (productsRes.data) setProducts(productsRes.data);
-    if (categoriesRes.data) setCategories(categoriesRes.data);
+    const productsJson = await productsRes.json();
+    const categoriesJson = await categoriesRes.json();
+
+    if (productsJson.data) setProducts(productsJson.data);
+    if (categoriesJson.data) setCategories(categoriesJson.data);
     setLoading(false);
   }
 
@@ -183,7 +175,8 @@ function ProductsContent() {
                 <ProductCard
                   key={p.id}
                   product={{
-                    id: p.slug || p.id,
+                    id: p.id,
+                    slug: p.slug,
                     name: p.name,
                     price: p.price,
                     mrp: p.mrp || p.price,

@@ -58,7 +58,7 @@ export function ProductCard({
       className="group relative"
     >
       <Link
-        href={`/products/${product.id}`}
+        href={`/products/${product.slug || product.id}`}
         className="block overflow-hidden rounded-2xl bg-card transition-all duration-500 gold-border"
       >
         <motion.div

@@ -101,6 +101,9 @@ CREATE POLICY "Customers can view own orders" ON orders
     customer_email = (SELECT email FROM auth.users WHERE id = auth.uid())
   );
 
+CREATE POLICY "Customers can update own orders" ON orders
+  FOR UPDATE USING (auth.uid() = user_id);
+
 -- Trigger to auto-create user profile on signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$

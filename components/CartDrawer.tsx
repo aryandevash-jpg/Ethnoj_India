@@ -1,52 +1,56 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Minus, Plus, ShoppingBag, Trash2, Ticket, Loader2, Check, Truck } from "lucide-react";
 import { formatINR, useCart } from "@/lib/cart";
+import { FREE_SHIPPING_THRESHOLD, SHIPPING_FEE } from "@/lib/shipping";
 import { validateCoupon } from "@/hooks/use-coupons";
 import { useAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import type { CouponValidationResult } from "@/lib/database.types";
-
-const SHIPPING_FEE = 99;
-const FREE_SHIPPING_THRESHOLD = 1499;
 
 export function CartDrawer() {
   const router = useRouter();
-  const { items, open, setOpen, remove, setQty, subtotal, clear } = useCart();
+  const {
+    items,
+    open,
+    setOpen,
+    remove,
+    setQty,
+    subtotal,
+    clear,
+    couponCode,
+    appliedCoupon,
+    setCouponCode,
+    setAppliedCoupon,
+    clearCoupon,
+  } = useCart();
   const { isAuthenticated } = useAuth();
-  
-  const [couponCode, setCouponCode] = useState("");
   const [isValidating, setIsValidating] = useState(false);
-  const [appliedCoupon, setAppliedCoupon] = useState<CouponValidationResult | null>(null);
-  
+
   const cartSubtotal = subtotal();
   const baseShipping = cartSubtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
   const hasFreeShipping = appliedCoupon?.valid && appliedCoupon.free_shipping;
   const shippingFee = hasFreeShipping ? 0 : baseShipping;
   const discount = appliedCoupon?.valid ? (appliedCoupon.calculated_discount || 0) : 0;
   const total = cartSubtotal - discount + shippingFee;
-  
+
   useEffect(() => {
-    if (appliedCoupon?.valid && cartSubtotal > 0) {
+    if (appliedCoupon?.valid && cartSubtotal > 0 && couponCode) {
+      const revalidateCoupon = async () => {
+        const result = await validateCoupon(couponCode, cartSubtotal);
+        if (!result.valid) {
+          clearCoupon();
+          toast.error(result.message);
+        } else {
+          setAppliedCoupon(result);
+        }
+      };
       revalidateCoupon();
     }
   }, [cartSubtotal]);
-
-  const revalidateCoupon = async () => {
-    if (!appliedCoupon?.valid) return;
-    const result = await validateCoupon(couponCode, cartSubtotal);
-    if (!result.valid) {
-      setAppliedCoupon(null);
-      setCouponCode("");
-      toast.error(result.message);
-    } else {
-      setAppliedCoupon(result);
-    }
-  };
 
   const handleApplyCoupon = async () => {
     if (!couponCode.trim()) {
@@ -67,8 +71,7 @@ export function CartDrawer() {
   };
 
   const handleRemoveCoupon = () => {
-    setAppliedCoupon(null);
-    setCouponCode("");
+    clearCoupon();
     toast("Coupon removed");
   };
 
@@ -328,8 +331,6 @@ export function CartDrawer() {
                   <button
                     onClick={() => {
                       clear();
-                      setAppliedCoupon(null);
-                      setCouponCode("");
                       toast("Bag cleared");
                     }}
                     className="flex-1 rounded-full border border-gold/40 py-3 text-sm font-medium text-ink/70 transition hover:bg-cream-deep"

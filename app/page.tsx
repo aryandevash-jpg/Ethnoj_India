@@ -8,7 +8,6 @@ import { motion, useScroll, useSpring, useInView } from "framer-motion";
 import { Star, Quote, Award, Truck, Heart, ArrowRight, Instagram, Sparkles } from "lucide-react";
 import { useRef, useState, useEffect } from "react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
 import type { DBReview } from "@/lib/database.types";
 
 export default function HomePage() {
@@ -45,7 +44,7 @@ export default function HomePage() {
 function TrustBadges() {
   const badges = [
     { icon: Award, label: "Authentic Craft", desc: "Genuine handmade pieces" },
-    { icon: Truck, label: "Free Shipping", desc: "On orders above ₹2000" },
+    { icon: Truck, label: "Free Shipping", desc: "On orders above ₹1499" },
     { icon: Heart, label: "Made with Love", desc: "By skilled artisans" },
     { icon: Sparkles, label: "Premium Quality", desc: "Finest materials used" },
   ];
@@ -94,16 +93,9 @@ function ReviewsSection() {
 
   useEffect(() => {
     async function fetchReviews() {
-      const supabase = createClient();
-      const { data } = await supabase
-        .from("reviews")
-        .select("*")
-        .eq("is_approved", true)
-        .eq("is_featured", true)
-        .order("created_at", { ascending: false })
-        .limit(6);
-      
-      if (data) setReviews(data);
+      const res = await fetch("/api/reviews?featured=true&limit=6");
+      const json = await res.json();
+      if (json.data) setReviews(json.data);
     }
     fetchReviews();
   }, []);
@@ -306,16 +298,11 @@ function InstagramSection() {
 
   useEffect(() => {
     async function fetchInstagramConfig() {
-      const supabase = createClient();
-      const { data } = await supabase
-        .from("home_config")
-        .select("*")
-        .eq("section", "instagram")
-        .eq("is_active", true)
-        .single();
-      
-      if (data?.config) {
-        setInstagramConfig(data.config);
+      const res = await fetch("/api/home-config?section=instagram");
+      const json = await res.json();
+      const row = Array.isArray(json.data) ? json.data[0] : json.data;
+      if (row?.config) {
+        setInstagramConfig(row.config);
       }
     }
     fetchInstagramConfig();

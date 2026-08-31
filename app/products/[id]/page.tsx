@@ -4,12 +4,11 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Heart, ShieldCheck, Truck, RotateCcw, Star } from "lucide-react";
 import { formatINR, useCart } from "@/lib/cart";
+import { dbProductToCartProduct } from "@/lib/map-product";
 import { toast } from "sonner";
 import { notFound, useRouter } from "next/navigation";
 import { use } from "react";
-import { createClient } from "@/lib/supabase/client";
-import type { DBProduct } from "@/lib/database.types";
-import { isUuid } from "@/lib/utils";
+import type { DBProduct, DBCategory } from "@/lib/database.types";
 import { useAuth } from "@/hooks/use-auth";
 
 export default function ProductDetail({
@@ -43,43 +42,32 @@ export default function ProductDetail({
 
   useEffect(() => {
     async function fetchProduct() {
-      const supabase = createClient();
+      const productRes = await fetch(`/api/products/${encodeURIComponent(id)}`);
+      const productJson = await productRes.json();
+      const data = productJson.data as DBProduct | undefined;
 
-      const query = isUuid(id)
-        ? supabase
-            .from("products")
-            .select("*")
-            .eq("id", id)
-            .eq("is_active", true)
-        : supabase
-            .from("products")
-            .select("*")
-            .eq("slug", id)
-            .eq("is_active", true);
-
-      const { data, error } = await query.single();
-
-      if (error || !data) {
+      if (!productRes.ok || !data) {
         setNotFoundState(true);
-      } else {
-        setProduct(data);
-        setSize(data.sizes?.[0] || "");
-        if (data.video_url) {
-          setActiveMedia(data.video_url);
-          setActiveMediaType("video");
-        } else {
-          setActiveMedia(data.image);
-          setActiveMediaType("image");
-        }
-
-        const { data: category } = await supabase
-          .from("categories")
-          .select("name")
-          .eq("slug", data.category)
-          .maybeSingle();
-
-        setCategoryName(category?.name || data.category.replace(/-/g, " "));
+        setLoading(false);
+        return;
       }
+
+      setProduct(data);
+      setSize(data.sizes?.[0] || "");
+      if (data.video_url) {
+        setActiveMedia(data.video_url);
+        setActiveMediaType("video");
+      } else {
+        setActiveMedia(data.image);
+        setActiveMediaType("image");
+      }
+
+      const categoriesRes = await fetch("/api/categories");
+      const categoriesJson = await categoriesRes.json();
+      const category = (categoriesJson.data as DBCategory[] | undefined)?.find(
+        (c) => c.slug === data.category
+      );
+      setCategoryName(category?.name || data.category.replace(/-/g, " "));
       setLoading(false);
     }
 
@@ -262,23 +250,7 @@ export default function ProductDetail({
             <button
               onClick={() => {
                 requireAuth(() => {
-                  add(
-                    {
-                      id: product.slug || product.id,
-                      name: product.name,
-                      price: product.price,
-                      mrp: product.mrp || product.price,
-                      image: product.image,
-                      hoverImage: product.hover_image || product.image,
-                      category: product.category as any,
-                      colors: product.colors || [],
-                      sizes: product.sizes || [],
-                      description: product.description || "",
-                      rating: product.rating || 0,
-                      reviews: product.reviews_count || 0,
-                    },
-                    size
-                  );
+                  add(dbProductToCartProduct(product), size);
                   toast.success("Added to bag", { description: product.name });
                   setOpen(true);
                 });
@@ -310,7 +282,7 @@ export default function ProductDetail({
           <div className="mt-8 grid grid-cols-3 gap-3 border-t border-gold/30 pt-6 text-center text-xs text-ink/70">
             <div>
               <Truck className="mx-auto mb-1.5 h-4 w-4 text-gold" />
-              Free shipping ₹2000+
+              Free shipping ₹1499+
             </div>
             <div>
               <RotateCcw className="mx-auto mb-1.5 h-4 w-4 text-gold" />

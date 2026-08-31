@@ -5,7 +5,6 @@ import { motion } from "framer-motion";
 import { Loader2, Save, User, Calendar, Phone, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { AccountSidebar } from "@/components/AccountSidebar";
-import { createClient } from "@/lib/supabase/client";
 import type { DBUserProfile } from "@/lib/database.types";
 
 export default function ProfilePage() {

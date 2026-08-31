@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { revalidateTag } from "next/cache";
+import { isUuid } from "@/lib/utils";
 
 export async function GET(
   request: NextRequest,
@@ -16,13 +17,19 @@ export async function GET(
       );
     }
 
-    const { data, error } = await supabase
-      .from("products")
-      .select("*")
-      .eq("id", id)
-      .single();
+    const lookup = isUuid(id)
+      ? supabase.from("products").select("*").eq("id", id)
+      : supabase.from("products").select("*").eq("slug", id);
+
+    const { data, error } = await lookup.eq("is_active", true).maybeSingle();
 
     if (error) throw error;
+    if (!data) {
+      return NextResponse.json(
+        { success: false, error: "Product not found" },
+        { status: 404 }
+      );
+    }
 
     return NextResponse.json({ success: true, data });
   } catch (error) {
