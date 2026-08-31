@@ -43,10 +43,10 @@ export default function SignupPage() {
 
     try {
       const supabase = createClient();
-      
-      // Sign up
+      const normalizedEmail = email.trim().toLowerCase();
+
       const { data, error: signUpError } = await supabase.auth.signUp({
-        email: email.trim().toLowerCase(),
+        email: normalizedEmail,
         password,
         options: {
           data: { full_name: fullName.trim() },
@@ -63,31 +63,17 @@ export default function SignupPage() {
         return;
       }
 
-      // If session exists, user is logged in
-      if (data.session) {
-        router.replace("/");
-        return;
-      }
-
-      // If no session, try to sign in (for when email confirmation is disabled)
-      if (data.user && !data.session) {
+      if (!data.session) {
         const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: email.trim().toLowerCase(),
+          email: normalizedEmail,
           password,
         });
 
         if (signInError) {
-          if (signInError.message.includes("Email not confirmed")) {
-            setError("Please check your email to verify your account.");
-          } else {
-            setError(signInError.message);
-          }
+          setError(signInError.message);
           setIsSubmitting(false);
           return;
         }
-
-        router.replace("/");
-        return;
       }
 
       router.replace("/");

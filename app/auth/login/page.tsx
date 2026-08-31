@@ -51,8 +51,6 @@ function LoginForm() {
       if (signInError) {
         if (signInError.message.includes("Invalid login credentials")) {
           setError("Invalid email or password. Please try again.");
-        } else if (signInError.message.includes("Email not confirmed")) {
-          setError("Please verify your email address before signing in.");
         } else {
           setError(signInError.message);
         }
