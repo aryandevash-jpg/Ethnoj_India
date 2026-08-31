@@ -11,10 +11,14 @@ function generateOrderNumber(): string {
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
-    if (!supabase) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
       return NextResponse.json(
-        { success: false, error: "Database not configured" },
-        { status: 503 }
+        { success: false, error: "Not authenticated" },
+        { status: 401 }
       );
     }
 
@@ -22,7 +26,10 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get("status");
     const limit = searchParams.get("limit");
 
-    let query = supabase.from("orders").select("*");
+    let query = supabase
+      .from("orders")
+      .select("*")
+      .or(`user_id.eq.${user.id},customer_email.eq.${user.email}`);
 
     if (status) {
       query = query.eq("order_status", status);
@@ -51,20 +58,63 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
-    if (!supabase) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
       return NextResponse.json(
-        { success: false, error: "Database not configured" },
-        { status: 503 }
+        { success: false, error: "Not authenticated" },
+        { status: 401 }
       );
     }
 
     const body = await request.json();
+    const {
+      customer_name,
+      customer_phone,
+      shipping_address,
+      items,
+      subtotal,
+      shipping,
+      discount,
+      total,
+      coupon_code,
+      coupon_discount,
+      payment_method,
+    } = body;
+
+    if (!customer_name || !customer_phone || !shipping_address || !items?.length) {
+      return NextResponse.json(
+        { success: false, error: "Missing order details" },
+        { status: 400 }
+      );
+    }
+
+    if (!shipping_address.line1 || !shipping_address.city || !shipping_address.state || !shipping_address.pincode) {
+      return NextResponse.json(
+        { success: false, error: "Incomplete shipping address" },
+        { status: 400 }
+      );
+    }
 
     const orderData = {
-      ...body,
+      user_id: user.id,
+      customer_name,
+      customer_email: user.email,
+      customer_phone,
+      shipping_address,
+      items,
+      subtotal: Number(subtotal) || 0,
+      shipping: Number(shipping) || 0,
+      discount: Number(discount) || 0,
+      total: Number(total) || 0,
+      coupon_code: coupon_code || null,
+      coupon_discount: Number(coupon_discount) || 0,
       order_number: generateOrderNumber(),
       payment_status: "pending",
       order_status: "pending",
+      payment_method: payment_method || "razorpay",
     };
 
     const { data, error } = await supabase

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { useAdminConfig } from "@/lib/admin-config";
 import { formatINR, useCart } from "@/lib/cart";
+import { dbProductToCartProduct } from "@/lib/map-product";
 import { ShoppingBag, Heart, Star, Play, Pause, Sparkles, ArrowRight, Check } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
@@ -370,20 +371,7 @@ export function FeaturedProduct() {
                 onClick={() => {
                   requireAuth(() => {
                     const size = selectedSize || (product.sizes || [])[0] || "";
-                    add({
-                      id: product.slug || product.id,
-                      name: product.name,
-                      price: product.price,
-                      mrp: product.mrp || product.price,
-                      image: product.image,
-                      hoverImage: product.hover_image || product.image,
-                      category: product.category as any,
-                      colors: product.colors || [],
-                      sizes: product.sizes || [],
-                      description: product.description || "",
-                      rating: product.rating || 0,
-                      reviews: product.reviews_count || 0,
-                    }, size);
+                    add(dbProductToCartProduct(product), size);
                     toast.success("Added to bag", { description: product.name });
                   });
                 }}

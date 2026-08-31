@@ -17,18 +17,16 @@ import {
   AlertCircle,
   X,
   Edit2,
+  Ticket,
   User,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatINR, useCart } from "@/lib/cart";
+import { FREE_SHIPPING_THRESHOLD, SHIPPING_FEE } from "@/lib/shipping";
 import { useAuth } from "@/hooks/use-auth";
 import { useRazorpay } from "@/hooks/use-razorpay";
-import { createOrder, updatePaymentStatus } from "@/hooks/use-orders";
-import { createClient } from "@/lib/supabase/client";
-import type { DBUserProfile, DBUserAddress, OrderItem, DBProduct } from "@/lib/database.types";
-
-const SHIPPING_FEE = 99;
-const FREE_SHIPPING_THRESHOLD = 1499;
+import { validateCoupon } from "@/hooks/use-coupons";
+import type { DBUserProfile, DBUserAddress, OrderItem, DBProduct, CouponValidationResult } from "@/lib/database.types";
 
 interface CheckoutItem {
   product_id: string;
@@ -42,8 +40,16 @@ interface CheckoutItem {
 function CheckoutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { items: cartItems, subtotal: cartSubtotal, clear: clearCart } = useCart();
-  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const {
+    items: cartItems,
+    clear: clearCart,
+    couponCode,
+    appliedCoupon,
+    setCouponCode,
+    setAppliedCoupon,
+    clearCoupon,
+  } = useCart();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { isLoaded: isRazorpayLoaded, isProcessing, initiatePayment } = useRazorpay();
 
   // Buy Now params
@@ -66,6 +72,9 @@ function CheckoutContent() {
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [showProfileForm, setShowProfileForm] = useState(false);
   const [isSavingAddress, setIsSavingAddress] = useState(false);
+  const [checkoutCouponCode, setCheckoutCouponCode] = useState("");
+  const [checkoutCoupon, setCheckoutCoupon] = useState<CouponValidationResult | null>(null);
+  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   // Address form state
@@ -109,42 +118,41 @@ function CheckoutContent() {
       }));
 
   const subtotal = checkoutItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const shippingFee = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
-  const total = subtotal + shippingFee;
+  const activeCoupon = isBuyNow ? checkoutCoupon : appliedCoupon;
+  const activeCouponCode = isBuyNow ? checkoutCouponCode : couponCode;
+  const discount = activeCoupon?.valid ? (activeCoupon.calculated_discount || 0) : 0;
+  const hasFreeShipping = activeCoupon?.valid && activeCoupon.free_shipping;
+  const shippingFee =
+    hasFreeShipping || subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
+  const total = Math.max(0, subtotal - discount + shippingFee);
 
   const selectedAddress = addresses.find((a) => a.id === selectedAddressId);
 
   // Fetch Buy Now product if applicable
   useEffect(() => {
-    if (buyNowProductId) {
-      fetchBuyNowProduct();
-    }
-  }, [buyNowProductId]);
+    if (!buyNowProductId) return;
 
-  const fetchBuyNowProduct = async () => {
-    setBuyNowLoading(true);
-    try {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("products")
-        .select("*")
-        .or(`id.eq.${buyNowProductId},slug.eq.${buyNowProductId}`)
-        .eq("is_active", true)
-        .single();
-
-      if (error || !data) {
-        toast.error("Product not found");
+    const fetchBuyNowProduct = async () => {
+      setBuyNowLoading(true);
+      try {
+        const res = await fetch(`/api/products/${encodeURIComponent(buyNowProductId)}`);
+        const json = await res.json();
+        if (!res.ok || !json.data) {
+          toast.error("Product not found");
+          router.push("/products");
+          return;
+        }
+        setBuyNowProduct(json.data);
+      } catch {
+        toast.error("Failed to load product");
         router.push("/products");
-        return;
+      } finally {
+        setBuyNowLoading(false);
       }
-      setBuyNowProduct(data);
-    } catch {
-      toast.error("Failed to load product");
-      router.push("/products");
-    } finally {
-      setBuyNowLoading(false);
-    }
-  };
+    };
+
+    fetchBuyNowProduct();
+  }, [buyNowProductId, router]);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -269,6 +277,45 @@ function CheckoutContent() {
     }
   };
 
+  useEffect(() => {
+    if (isBuyNow) return;
+    setCheckoutCouponCode(couponCode);
+    setCheckoutCoupon(appliedCoupon);
+  }, [isBuyNow, couponCode, appliedCoupon]);
+
+  const handleApplyCheckoutCoupon = async () => {
+    const code = (isBuyNow ? checkoutCouponCode : couponCode).trim();
+    if (!code) {
+      toast.error("Please enter a coupon code");
+      return;
+    }
+    setIsValidatingCoupon(true);
+    const result = await validateCoupon(code, subtotal, profile?.email);
+    setIsValidatingCoupon(false);
+    if (result.valid) {
+      if (isBuyNow) {
+        setCheckoutCoupon(result);
+        setCheckoutCouponCode(code);
+      } else {
+        setAppliedCoupon(result);
+        setCouponCode(code);
+      }
+      toast.success(result.message);
+    } else {
+      toast.error(result.message);
+    }
+  };
+
+  const handleRemoveCheckoutCoupon = () => {
+    if (isBuyNow) {
+      setCheckoutCoupon(null);
+      setCheckoutCouponCode("");
+    } else {
+      clearCoupon();
+    }
+    toast("Coupon removed");
+  };
+
   const handleProceedToPayment = async () => {
     if (!selectedAddress) {
       toast.error("Please select or add a delivery address");
@@ -297,27 +344,36 @@ function CheckoutContent() {
         price: item.price * item.quantity,
       }));
 
-      const order = await createOrder({
-        customer_name: selectedAddress.full_name,
-        customer_email: profile.email,
-        customer_phone: selectedAddress.phone,
-        shipping_address: {
-          line1: selectedAddress.address_line1,
-          line2: selectedAddress.address_line2,
-          city: selectedAddress.city,
-          state: selectedAddress.state,
-          pincode: selectedAddress.pincode,
-          country: selectedAddress.country || "India",
-        },
-        items: orderItems,
-        subtotal: subtotal,
-        shipping: shippingFee,
-        discount: 0,
-        total: total,
+      const orderRes = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customer_name: selectedAddress.full_name,
+          customer_phone: selectedAddress.phone,
+          shipping_address: {
+            line1: selectedAddress.address_line1,
+            line2: selectedAddress.address_line2,
+            city: selectedAddress.city,
+            state: selectedAddress.state,
+            pincode: selectedAddress.pincode,
+            country: selectedAddress.country || "India",
+          },
+          items: orderItems,
+          subtotal,
+          shipping: shippingFee,
+          discount,
+          total,
+          coupon_code: activeCoupon?.valid ? activeCouponCode : undefined,
+          coupon_discount: discount,
+          payment_method: "razorpay",
+        }),
       });
 
-      if (!order) {
-        throw new Error("Failed to create order");
+      const orderJson = await orderRes.json();
+      const order = orderJson.data;
+
+      if (!orderRes.ok || !order) {
+        throw new Error(orderJson.error || "Failed to create order");
       }
 
       initiatePayment({
@@ -332,25 +388,16 @@ function CheckoutContent() {
           order_id: order.id,
           order_number: order.order_number,
         },
-        onSuccess: async (response) => {
-          const updated = await updatePaymentStatus(
-            order.id,
-            "paid",
-            response.razorpay_payment_id
-          );
-
-          if (updated) {
-            if (!isBuyNow) {
-              clearCart();
-            }
-            toast.success("Order placed successfully!");
-            router.push("/account/orders");
+        onSuccess: () => {
+          if (!isBuyNow) {
+            clearCart();
           } else {
-            toast.error("Payment recorded but order update failed. Contact support.");
+            clearCoupon();
           }
+          toast.success("Order placed successfully!");
+          router.push("/account/orders");
         },
-        onError: async () => {
-          await updatePaymentStatus(order.id, "failed");
+        onError: () => {
           toast.error("Payment failed. Please try again.");
         },
         onDismiss: () => {
@@ -872,12 +919,73 @@ function CheckoutContent() {
                 ))}
               </div>
 
+              {/* Coupon */}
+              <div className="mb-6 space-y-2">
+                <label className="flex items-center gap-2 text-sm text-ink/70">
+                  <Ticket className="h-4 w-4" />
+                  Have a coupon?
+                </label>
+                {activeCoupon?.valid ? (
+                  <div className="flex items-center justify-between rounded-lg bg-emerald/10 px-3 py-2 border border-emerald/30">
+                    <div className="flex items-center gap-2">
+                      <Check className="h-4 w-4 text-emerald" />
+                      <span className="text-sm font-medium text-emerald">
+                        {activeCouponCode.toUpperCase()}
+                      </span>
+                      {hasFreeShipping ? (
+                        <span className="text-xs text-emerald/80">Free Shipping!</span>
+                      ) : (
+                        <span className="text-xs text-emerald/80">-{formatINR(discount)}</span>
+                      )}
+                    </div>
+                    <button
+                      onClick={handleRemoveCheckoutCoupon}
+                      className="text-emerald/70 hover:text-emerald"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={isBuyNow ? checkoutCouponCode : couponCode}
+                      onChange={(e) => {
+                        const value = e.target.value.toUpperCase();
+                        if (isBuyNow) setCheckoutCouponCode(value);
+                        else setCouponCode(value);
+                      }}
+                      placeholder="Enter code"
+                      className="flex-1 h-10 rounded-lg border border-gold/30 bg-card px-3 text-sm uppercase placeholder:normal-case focus:border-maroon focus:ring-2 focus:ring-maroon/20 outline-none"
+                      onKeyDown={(e) => e.key === "Enter" && handleApplyCheckoutCoupon()}
+                    />
+                    <button
+                      onClick={handleApplyCheckoutCoupon}
+                      disabled={isValidatingCoupon || !(isBuyNow ? checkoutCouponCode : couponCode).trim()}
+                      className="px-4 h-10 rounded-lg bg-cream-deep text-sm font-medium text-ink hover:bg-gold/20 transition disabled:opacity-50"
+                    >
+                      {isValidatingCoupon ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        "Apply"
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+
               {/* Price Breakdown */}
               <div className="border-t border-gold/20 pt-4 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-ink/70">Subtotal</span>
                   <span className="text-ink">{formatINR(subtotal)}</span>
                 </div>
+                {discount > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-emerald">Coupon Discount</span>
+                    <span className="text-emerald">-{formatINR(discount)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm">
                   <span className="text-ink/70 flex items-center gap-1">
                     <Truck className="h-4 w-4" />

@@ -112,7 +112,10 @@ export function useRazorpay() {
               const verifyResponse = await fetch("/api/razorpay/verify-payment", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(response),
+                body: JSON.stringify({
+                  ...response,
+                  order_id: options.notes?.order_id,
+                }),
               });
 
               if (!verifyResponse.ok) {

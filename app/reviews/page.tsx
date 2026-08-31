@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Star, Camera, Send, Quote, Share2, Check, X, Sparkles, Heart, MessageCircle } from "lucide-react";
 import { SectionHeading } from "@/components/SectionHeading";
-import { createClient } from "@/lib/supabase/client";
 import type { DBReview } from "@/lib/database.types";
 import { CloudinaryUpload } from "@/components/CloudinaryUpload";
 import Link from "next/link";
@@ -170,18 +169,20 @@ function ReviewForm({ onSuccess }: { onSuccess: () => void }) {
     setIsSubmitting(true);
 
     try {
-      const supabase = createClient();
-      const { error } = await supabase.from("reviews").insert({
-        name: formData.name.trim(),
-        email: formData.email.trim() || null,
-        rating: formData.rating,
-        text: formData.text.trim(),
-        image: formData.image || null,
-        is_approved: false,
-        is_featured: false,
+      const res = await fetch("/api/reviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formData.name.trim(),
+          email: formData.email.trim() || null,
+          rating: formData.rating,
+          text: formData.text.trim(),
+          image: formData.image || null,
+        }),
       });
 
-      if (error) throw error;
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || "Failed");
 
       toast.success("Thank you! Your review has been submitted for approval.");
       setFormData({ name: "", email: "", rating: 5, text: "", image: "" });
@@ -390,18 +391,13 @@ export default function ReviewsPage() {
   }, []);
 
   async function fetchReviews() {
-    const supabase = createClient();
+    const res = await fetch("/api/reviews");
+    const json = await res.json();
 
-    const { data, error } = await supabase
-      .from("reviews")
-      .select("*")
-      .eq("is_approved", true)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error("Error fetching reviews:", error);
+    if (!res.ok) {
+      console.error("Error fetching reviews:", json.error);
     } else {
-      setReviews(data || []);
+      setReviews(json.data || []);
     }
     setLoading(false);
   }

@@ -1,6 +1,5 @@
 import { create } from "zustand";
-import { createClient } from "@/lib/supabase/client";
-import type { DBProduct } from "./database.types";
+import type { DBProduct, DBCategory, DBHomeConfig } from "./database.types";
 
 export interface HeroConfig {
   videoUrl: string;
@@ -55,7 +54,7 @@ export interface HomePageConfig {
 const defaultConfig: HomePageConfig = {
   hero: {
     videoUrl: "",
-    posterUrl: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=1920&q=80",
+    posterUrl: "",
     kicker: "Festive Edit",
     headline: ["Woven", "in", "tradition"],
     subheadline: "Heirloom-worthy Indian ethnic wear, handcrafted by artisans.",
@@ -112,23 +111,32 @@ export const useAdminConfig = create<AdminConfigStore>((set, get) => ({
   featuredProduct: null,
 
   fetchConfig: async () => {
-    const supabase = createClient();
-
-    // Helper to filter out empty/null/undefined values from config
     const filterEmptyValues = <T extends Record<string, unknown>>(obj: T): Partial<T> => {
       return Object.fromEntries(
         Object.entries(obj).filter(([, value]) => value !== null && value !== undefined && value !== "")
       ) as Partial<T>;
     };
 
-    try {
-      // Fetch all home_config from database
-      const { data: configs } = await supabase
-        .from("home_config")
-        .select("*")
-        .eq("is_active", true);
+    const fetchCategoriesForCarousel = async () => {
+      const res = await fetch("/api/categories");
+      const json = await res.json();
+      const categories = (json.data as DBCategory[] | undefined) || [];
+      return categories.map((cat) => ({
+        id: cat.slug || cat.id,
+        category: cat.slug || cat.id,
+        label: cat.name,
+        tagline: cat.tagline || cat.description || "",
+        videoUrl: cat.video_url || "",
+        posterUrl: cat.image || "",
+      }));
+    };
 
-      if (configs && configs.length > 0) {
+    try {
+      const configRes = await fetch("/api/home-config");
+      const configJson = await configRes.json();
+      const configs = (configJson.data as DBHomeConfig[] | undefined) || [];
+
+      if (configs.length > 0) {
         const newConfig = { ...defaultConfig };
 
         configs.forEach((item) => {
@@ -148,77 +156,25 @@ export const useAdminConfig = create<AdminConfigStore>((set, get) => ({
           }
         });
 
-        // Fetch categories for carousel if not set
         if (newConfig.carousel.items.length === 0) {
-          const { data: categories } = await supabase
-            .from("categories")
-            .select("*")
-            .eq("is_active", true)
-            .order("display_order", { ascending: true });
-
-          if (categories) {
-            newConfig.carousel.items = categories.map((cat) => ({
-              id: cat.slug || cat.id,
-              category: cat.slug || cat.id,
-              label: cat.name,
-              tagline: cat.tagline || cat.description || "",
-              videoUrl: cat.video_url || "",
-              posterUrl: cat.image || "",
-            }));
-          }
+          newConfig.carousel.items = await fetchCategoriesForCarousel();
         }
 
-        // Fetch featured product if productId is set
         let featuredProd: DBProduct | null = null;
         const productIdOrSlug = newConfig.featuredProduct.productId;
-        
+
         if (productIdOrSlug) {
-          // Try finding by slug first
-          let { data: product } = await supabase
-            .from("products")
-            .select("*")
-            .eq("slug", productIdOrSlug)
-            .eq("is_active", true)
-            .maybeSingle();
-
-          // If not found by slug, try by id
-          if (!product) {
-            const { data: productById } = await supabase
-              .from("products")
-              .select("*")
-              .eq("id", productIdOrSlug)
-              .eq("is_active", true)
-              .maybeSingle();
-            
-            product = productById;
-          }
-
-          if (product) {
-            featuredProd = product;
+          const productRes = await fetch(`/api/products/${encodeURIComponent(productIdOrSlug)}`);
+          const productJson = await productRes.json();
+          if (productJson.data) {
+            featuredProd = productJson.data;
           }
         }
 
         set({ config: newConfig, isLoaded: true, featuredProduct: featuredProd });
       } else {
-        // No config in DB, fetch categories for carousel
-        const { data: categories } = await supabase
-          .from("categories")
-          .select("*")
-          .eq("is_active", true)
-          .order("display_order", { ascending: true });
-
         const newConfig = { ...defaultConfig };
-        if (categories) {
-          newConfig.carousel.items = categories.map((cat) => ({
-            id: cat.slug || cat.id,
-            category: cat.slug || cat.id,
-            label: cat.name,
-            tagline: cat.tagline || cat.description || "",
-            videoUrl: cat.video_url || "",
-            posterUrl: cat.image || "",
-          }));
-        }
-
+        newConfig.carousel.items = await fetchCategoriesForCarousel();
         set({ config: newConfig, isLoaded: true });
       }
     } catch (error) {

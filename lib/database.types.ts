@@ -81,6 +81,8 @@ export interface DBOrder {
   order_status: "pending" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled";
   payment_id?: string;
   payment_method?: string;
+  coupon_code?: string;
+  coupon_discount?: number;
   notes?: string;
   created_at: string;
   updated_at: string;

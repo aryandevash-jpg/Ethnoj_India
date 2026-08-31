@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
     const productId = searchParams.get("product_id");
     const featured = searchParams.get("featured");
     const approved = searchParams.get("approved");
+    const limit = searchParams.get("limit");
 
     let query = supabase.from("reviews").select("*");
 
@@ -32,6 +33,10 @@ export async function GET(request: NextRequest) {
     }
 
     query = query.order("created_at", { ascending: false });
+
+    if (limit) {
+      query = query.limit(parseInt(limit));
+    }
 
     const { data, error } = await query;
 

@@ -110,7 +110,7 @@ export default function SignupPage() {
 
   const benefits = [
     { icon: Gift, text: "Get 10% off your first order" },
-    { icon: Truck, text: "Free shipping on orders over ₹2000" },
+    { icon: Truck, text: "Free shipping on orders over ₹1499" },
     { icon: Shield, text: "100% secure checkout" },
   ];
 

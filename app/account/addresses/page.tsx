@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { AccountSidebar } from "@/components/AccountSidebar";
-import { createClient } from "@/lib/supabase/client";
 import type { DBUserAddress, DBUserProfile } from "@/lib/database.types";
 
 const INDIAN_STATES = [

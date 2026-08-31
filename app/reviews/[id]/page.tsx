@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Star, Quote, ArrowLeft, Share2, Check, Calendar, User, Heart, ExternalLink } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import type { DBReview } from "@/lib/database.types";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -19,34 +18,25 @@ export default function ReviewDetailPage() {
 
   useEffect(() => {
     async function fetchReview() {
-      const supabase = createClient();
       const id = params.id as string;
+      const res = await fetch(`/api/reviews/${encodeURIComponent(id)}`);
+      const json = await res.json();
 
-      const { data, error } = await supabase
-        .from("reviews")
-        .select("*")
-        .eq("id", id)
-        .eq("is_approved", true)
-        .single();
-
-      if (error || !data) {
-        console.error("Error fetching review:", error);
+      if (!res.ok || !json.data) {
+        console.error("Error fetching review:", json.error);
         setLoading(false);
         return;
       }
 
-      setReview(data);
+      setReview(json.data);
 
-      // Fetch related reviews
-      const { data: related } = await supabase
-        .from("reviews")
-        .select("*")
-        .eq("is_approved", true)
-        .neq("id", id)
-        .order("created_at", { ascending: false })
-        .limit(3);
+      const relatedRes = await fetch("/api/reviews?limit=4");
+      const relatedJson = await relatedRes.json();
+      const related = ((relatedJson.data as DBReview[]) || []).filter(
+        (item) => item.id !== id
+      ).slice(0, 3);
 
-      setRelatedReviews(related || []);
+      setRelatedReviews(related);
       setLoading(false);
     }
 
