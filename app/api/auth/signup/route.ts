@@ -21,7 +21,6 @@ export async function POST(request: NextRequest) {
         data: {
           full_name: fullName || '',
         },
-        emailRedirectTo: `${request.nextUrl.origin}/auth/callback`,
       },
     })
 
@@ -32,10 +31,23 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    if (data.user && !data.session) {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (signInError) {
+        return NextResponse.json(
+          { error: signInError.message },
+          { status: 400 }
+        )
+      }
+    }
+
     return NextResponse.json({
       success: true,
       user: data.user,
-      message: 'Please check your email to verify your account',
     })
   } catch {
     return NextResponse.json(
