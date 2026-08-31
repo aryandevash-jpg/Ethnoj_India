@@ -54,7 +54,7 @@ export interface HomePageConfig {
 const defaultConfig: HomePageConfig = {
   hero: {
     videoUrl: "",
-    posterUrl: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=1920&q=80",
+    posterUrl: "",
     kicker: "Festive Edit",
     headline: ["Woven", "in", "tradition"],
     subheadline: "Heirloom-worthy Indian ethnic wear, handcrafted by artisans.",
