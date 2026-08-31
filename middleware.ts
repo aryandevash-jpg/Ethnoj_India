@@ -32,26 +32,59 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const isAdminRoute = request.nextUrl.pathname.startsWith('/admin')
-  const isLoginPage = request.nextUrl.pathname === '/admin/login'
+  const pathname = request.nextUrl.pathname
+  
+  // Admin routes
+  const isAdminRoute = pathname.startsWith('/admin')
+  const isAdminLoginPage = pathname === '/admin/login'
+
+  // Customer account routes
+  const isAccountRoute = pathname.startsWith('/account')
+  
+  // Customer auth routes
+  const isAuthRoute = pathname.startsWith('/auth')
+  const isAuthLoginPage = pathname === '/auth/login'
+  const isAuthSignupPage = pathname === '/auth/signup'
+  const isAuthCallbackPage = pathname === '/auth/callback'
 
   // Protect admin routes (except login page)
-  if (isAdminRoute && !isLoginPage) {
+  if (isAdminRoute && !isAdminLoginPage) {
     if (!user) {
       const url = request.nextUrl.clone()
       url.pathname = '/admin/login'
-      url.searchParams.set('redirectTo', request.nextUrl.pathname)
+      url.searchParams.set('redirectTo', pathname)
       return NextResponse.redirect(url)
     }
   }
 
-  // Redirect authenticated users away from login page
-  if (isLoginPage && user) {
+  // Redirect authenticated users away from admin login page
+  if (isAdminLoginPage && user) {
     const redirectTo = request.nextUrl.searchParams.get('redirectTo') || '/admin'
     const url = request.nextUrl.clone()
     url.pathname = redirectTo
     url.searchParams.delete('redirectTo')
     return NextResponse.redirect(url)
+  }
+
+  // Protect customer account routes
+  if (isAccountRoute) {
+    if (!user) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/auth/login'
+      url.searchParams.set('redirectTo', pathname)
+      return NextResponse.redirect(url)
+    }
+  }
+
+  // Redirect authenticated users away from auth pages (except callback)
+  if (isAuthRoute && !isAuthCallbackPage && (isAuthLoginPage || isAuthSignupPage)) {
+    if (user) {
+      const redirectTo = request.nextUrl.searchParams.get('redirectTo') || '/'
+      const url = request.nextUrl.clone()
+      url.pathname = redirectTo
+      url.searchParams.delete('redirectTo')
+      return NextResponse.redirect(url)
+    }
   }
 
   return supabaseResponse
@@ -60,5 +93,7 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     '/admin/:path*',
+    '/account/:path*',
+    '/auth/:path*',
   ],
 }

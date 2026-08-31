@@ -9,8 +9,9 @@ import { Preloader } from "./Preloader";
 export function ConditionalChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isAdmin = pathname?.startsWith("/admin");
+  const isAuth = pathname?.startsWith("/auth");
 
-  if (isAdmin) {
+  if (isAdmin || isAuth) {
     return <>{children}</>;
   }
 

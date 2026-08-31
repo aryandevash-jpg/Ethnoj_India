@@ -17,6 +17,7 @@ import {
   ChevronRight,
   LogOut,
   Loader2,
+  Ticket,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -26,6 +27,7 @@ const navItems = [
   { href: "/admin/products", label: "Products", icon: Package },
   { href: "/admin/categories", label: "Categories", icon: Grid3X3 },
   { href: "/admin/orders", label: "Orders", icon: ShoppingCart },
+  { href: "/admin/coupons", label: "Coupons", icon: Ticket },
   { href: "/admin/reviews", label: "Reviews", icon: Star },
   { href: "/admin/home-config", label: "Home Page", icon: Home },
   { href: "/admin/enquiries", label: "Enquiries", icon: MessageSquare },

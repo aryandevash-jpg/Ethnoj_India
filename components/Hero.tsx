@@ -4,7 +4,8 @@ import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion"
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { useAdminConfig } from "@/lib/admin-config";
-import { ChevronDown, Volume2, VolumeX } from "lucide-react";
+import { ChevronDown, Volume2, VolumeX, UserPlus } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 
 const letterVariants = {
   hidden: { y: 80, opacity: 0, rotateX: -90 },
@@ -37,6 +38,8 @@ export function Hero() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isMuted, setIsMuted] = useState(true);
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
+  
+  const { isAuthenticated, isLoading } = useAuth();
 
   const { scrollYProgress } = useScroll({
     target: ref,
@@ -182,6 +185,34 @@ export function Hero() {
             {config.secondaryCta.label}
           </Link>
         </motion.div>
+
+        {/* Login/Signup Hook - Only visible when not logged in */}
+        <AnimatePresence>
+          {!isLoading && !isAuthenticated && (
+            <motion.div
+              key="auth-hook"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ delay: 1.5, duration: 0.8 }}
+              className="mt-8"
+            >
+              <div className="inline-flex items-center gap-3 rounded-full bg-ink/30 px-5 py-3 backdrop-blur-sm border border-cream/20">
+                <UserPlus className="h-4 w-4 text-gold" />
+                <span className="text-sm text-cream/90">
+                  <Link href="/auth/login" className="text-gold hover:text-cream transition font-medium">
+                    Sign in
+                  </Link>
+                  {" "}or{" "}
+                  <Link href="/auth/signup" className="text-gold hover:text-cream transition font-medium">
+                    create an account
+                  </Link>
+                  {" "}to save favorites & checkout faster
+                </span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
 
       <motion.button

@@ -20,6 +20,7 @@ interface CreateOrderData {
   shipping: number;
   discount: number;
   total: number;
+  payment_method?: string;
 }
 
 function generateOrderNumber(): string {
@@ -36,13 +37,18 @@ export async function createOrder(orderData: CreateOrderData): Promise<DBOrder |
     return null;
   }
 
+  // Get current user for user_id
+  const { data: { user } } = await supabase.auth.getUser();
+
   const { data, error } = await supabase
     .from("orders")
     .insert({
       ...orderData,
+      user_id: user?.id || null,
       order_number: generateOrderNumber(),
       payment_status: "pending",
       order_status: "pending",
+      payment_method: orderData.payment_method || "razorpay",
     })
     .select()
     .single();
